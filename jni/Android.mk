@@ -56,3 +56,18 @@ LOCAL_CFLAGS:= \
 		-D__ANDROID__
 
 include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := gatttool
+LOCAL_SRC_FILES := attrib/gatttool.c
+LOCAL_STATIC_LIBRARIES := bluetooth bluetoothd
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/src/
+
+LOCAL_CFLAGS:= \
+        -DVERSION=\"4.98\" \
+		-DSTORAGEDIR=\"/data/misc/bluetoothd\" \
+		-DNEED_PPOLL \
+		-D__ANDROID__
+
+include $(BUILD_EXECUTABLE)
