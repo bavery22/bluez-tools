@@ -112,6 +112,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := gatttool
 LOCAL_SRC_FILES := attrib/gatttool.c \
 	attrib/gatt.c \
+	attrib/gattrib.c \
 	attrib/att.c \
 	attrib/utils.c
 
