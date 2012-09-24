@@ -92,6 +92,11 @@ struct server {
 	GDestroyNotify destroy;
 };
 
+#ifdef __ANDROID__
+#define SO_PROTOCOL 38
+#define SO_DOMAIN 39
+#endif
+
 static BtIOType bt_io_get_type(GIOChannel *io, GError **gerr)
 {
 	int sk = g_io_channel_unix_get_fd(io);
