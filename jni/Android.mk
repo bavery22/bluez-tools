@@ -114,7 +114,9 @@ LOCAL_SRC_FILES := attrib/gatttool.c \
 	attrib/gatt.c \
 	attrib/gattrib.c \
 	attrib/att.c \
-	attrib/utils.c
+	attrib/utils.c \
+	src/log.c \
+	btio/btio.c
 
 LOCAL_STATIC_LIBRARIES := bluetooth bluetoothd glib
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/src/ \
