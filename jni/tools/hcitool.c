@@ -2407,13 +2407,15 @@ failed:
 	snprintf(buf, buf_len, "(unknown)");
 }
 
-static int print_advertising_devices(int dd, uint8_t filter_type)
+static int print_advertising_devices(int dd, uint8_t filter_type, int count,
+                                     uint8_t time)
 {
 	unsigned char buf[HCI_MAX_EVENT_SIZE], *ptr;
 	struct hci_filter nf, of;
 	struct sigaction sa;
 	socklen_t olen;
 	int len;
+    int c = 0;
 
 	olen = sizeof(of);
 	if (getsockopt(dd, SOL_HCI, HCI_FILTER, &of, &olen) < 0) {
@@ -2435,13 +2437,23 @@ static int print_advertising_devices(int dd, uint8_t filter_type)
 	sa.sa_handler = sigint_handler;
 	sigaction(SIGINT, &sa, NULL);
 
-	while (1) {
+    if ( time > 0 ) {
+        memset(&sa, 0, sizeof(sa));
+        sa.sa_flags = SA_NOCLDSTOP;
+        sa.sa_handler = sigint_handler;
+        sigaction(SIGALRM, &sa, NULL);
+        alarm(time);
+    }
+
+	while (count == -1 || c < count) {
 		evt_le_meta_event *meta;
 		le_advertising_info *info;
 		char addr[18];
 
+        c++;
 		while ((len = read(dd, buf, sizeof(buf))) < 0) {
-			if (errno == EINTR && signal_received == SIGINT) {
+			if (errno == EINTR && (signal_received == SIGINT || 
+                                   signal_received == SIGALRM)) {
 				len = 0;
 				goto done;
 			}
@@ -2490,6 +2502,8 @@ static struct option lescan_options[] = {
 	{ "whitelist",	0, 0, 'w' },
 	{ "discovery",	1, 0, 'd' },
 	{ "duplicates",	0, 0, 'D' },
+    { "count",      1, 0, 'c' },
+    { "time",       1, 0, 't' },
 	{ 0, 0, 0, 0 }
 };
 
@@ -2500,7 +2514,9 @@ static const char *lescan_help =
 	"\tlescan [--whitelist] scan for address in the whitelist only\n"
 	"\tlescan [--discovery=g|l] enable general or limited discovery"
 		"procedure\n"
-	"\tlescan [--duplicates] don't filter duplicates\n";
+	"\tlescan [--duplicates] don't filter duplicates\n"
+    "\tlescan [--time=<value>] how long to scan\n"
+    "\tlescam [--count=<value>] how many results to show\n";
 
 static void cmd_lescan(int dev_id, int argc, char **argv)
 {
@@ -2512,6 +2528,8 @@ static void cmd_lescan(int dev_id, int argc, char **argv)
 	uint16_t interval = htobs(0x0010);
 	uint16_t window = htobs(0x0010);
 	uint8_t filter_dup = 1;
+    int count = -1;
+    uint8_t time = -1;
 
 	for_each_opt(opt, lescan_options, NULL) {
 		switch (opt) {
@@ -2537,6 +2555,12 @@ static void cmd_lescan(int dev_id, int argc, char **argv)
 		case 'D':
 			filter_dup = 0x00;
 			break;
+        case 'c':
+            count = atoi(optarg);
+            continue;
+        case 't':
+            time = atoi(optarg);
+            continue;
 		default:
 			printf("%s", lescan_help);
 			return;
@@ -2557,7 +2581,12 @@ static void cmd_lescan(int dev_id, int argc, char **argv)
 						own_type, filter_policy, 1000);
 	if (err < 0) {
 		perror("Set scan parameters failed");
-		exit(1);
+        err = hci_le_set_scan_enable(dd, 0x00, filter_dup, 1000);
+        if (err < 0) {
+            perror("Disable scan failed");
+            exit(2);
+        }
+        exit(1);
 	}
 
 	err = hci_le_set_scan_enable(dd, 0x01, filter_dup, 1000);
@@ -2568,7 +2597,7 @@ static void cmd_lescan(int dev_id, int argc, char **argv)
 
 	printf("LE Scan ...\n");
 
-	err = print_advertising_devices(dd, filter_type);
+	err = print_advertising_devices(dd, filter_type, count, time);
 	if (err < 0) {
 		perror("Could not receive advertising events");
 		exit(1);
