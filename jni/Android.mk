@@ -81,8 +81,8 @@ LOCAL_SRC_FILES:= \
 	glib/gqueue.c \
 
 LOCAL_C_INCLUDES:= \
-	$(LOCAL_PATH)/glib/
-#	$(LOCAL_PATH)/../ \
+	$(LOCAL_PATH)/glib/ \
+	$(LOCAL_PATH)/external
 #	$(LOCAL_PATH)
 
 LOCAL_CFLAGS:= \
@@ -115,13 +115,16 @@ LOCAL_SRC_FILES := attrib/gatttool.c \
 	attrib/gattrib.c \
 	attrib/att.c \
 	attrib/utils.c \
+	attrib/interactive.c \
 	src/log.c \
 	btio/btio.c
 
-LOCAL_STATIC_LIBRARIES := bluetooth bluetoothd glib
+LOCAL_STATIC_LIBRARIES := bluetooth bluetoothd libhistory libreadline libtermcap glib
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/src/ \
 	$(LOCAL_PATH)/btio/ \
-	$(LOCAL_PATH)/glib/
+	$(LOCAL_PATH)/glib/ \
+	$(LOCAL_PATH)/external/ \
+	$(LOCAL_PATH)
 
 LOCAL_CFLAGS:= \
         -DVERSION=\"4.98\" \
@@ -130,3 +133,5 @@ LOCAL_CFLAGS:= \
 		-D__ANDROID__
 
 include $(BUILD_EXECUTABLE)
+
+include $(call all-makefiles-under,$(LOCAL_PATH))

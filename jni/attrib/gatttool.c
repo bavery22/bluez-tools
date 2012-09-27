@@ -61,9 +61,7 @@ static gboolean opt_listen = FALSE;
 static gboolean opt_char_desc = FALSE;
 static gboolean opt_char_write = FALSE;
 static gboolean opt_char_write_req = FALSE;
-#ifndef __ANDROID__
 static gboolean opt_interactive = FALSE;
-#endif
 static GMainLoop *event_loop;
 static gboolean got_error = FALSE;
 static GSourceFunc operation;
@@ -521,10 +519,8 @@ static GOptionEntry gatt_options[] = {
 		"Characteristics Descriptor Discovery", NULL },
 	{ "listen", 0, 0, G_OPTION_ARG_NONE, &opt_listen,
 		"Listen for notifications and indications", NULL },
-#ifndef __ANDROID__
 	{ "interactive", 'I', G_OPTION_FLAG_IN_MAIN, G_OPTION_ARG_NONE,
 		&opt_interactive, "Use interactive mode", NULL },
-#endif
 	{ NULL },
 };
 
@@ -585,12 +581,10 @@ int main(int argc, char *argv[])
 		g_error_free(gerr);
 	}
 
-#ifndef __ANDROID__
 	if (opt_interactive) {
 		interactive(opt_src, opt_dst, opt_dst_type, opt_psm);
 		goto done;
 	}
-#endif
 
 	if (opt_primary)
 		operation = primary;
