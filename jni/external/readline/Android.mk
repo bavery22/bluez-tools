@@ -13,7 +13,8 @@ LOCAL_SRC_FILES:= \
 	shell.c \
 	savestring.c \
 	mbutil.c \
-	xmalloc.c
+	xmalloc.c \
+	xfree.c
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/..
@@ -64,7 +65,8 @@ LOCAL_SRC_FILES:= \
 	mbutil.c \
 	tilde.c \
 	xmalloc.c \
-	compat.c
+	compat.c \
+	xfree.c
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/../
