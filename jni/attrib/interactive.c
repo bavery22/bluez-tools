@@ -97,7 +97,8 @@ static char *get_prompt(void)
 static void set_state(enum state st)
 {
 	conn_state = st;
-	rl_set_prompt(get_prompt());
+	rl_on_new_line();
+    rl_set_prompt(get_prompt());
 	rl_redisplay();
 }
 
@@ -112,18 +113,18 @@ static void events_handler(const uint8_t *pdu, uint16_t len, gpointer user_data)
 	printf("\n");
 	switch (pdu[0]) {
 	case ATT_OP_HANDLE_NOTIFY:
-		printf("Notification handle = 0x%04x value: ", handle);
+		printf("NOTIFICATION: handle = 0x%04x value: ", handle);
 		break;
 	case ATT_OP_HANDLE_IND:
-		printf("Indication   handle = 0x%04x value: ", handle);
+		printf("INDICATION: handle = 0x%04x value: ", handle);
 		break;
 	default:
-		printf("Invalid opcode\n");
+		printf("EVENT: Invalid opcode\n");
 		return;
 	}
 
 	for (i = 3; i < len; i++)
-		printf("%02x ", pdu[i]);
+		printf("0x%02x ", pdu[i]);
 
 	printf("\n");
 	rl_forced_update_display();
@@ -141,7 +142,7 @@ static void events_handler(const uint8_t *pdu, uint16_t len, gpointer user_data)
 static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
 {
 	if (err) {
-		printf("connect error: %s\n", err->message);
+		printf("ERROR(0,%i): %s\n", err->code, err->message);
 		set_state(STATE_DISCONNECTED);
 		return;
 	}
@@ -151,7 +152,8 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
 							attrib, NULL);
 	g_attrib_register(attrib, ATT_OP_HANDLE_IND, events_handler,
 							attrib, NULL);
-	set_state(STATE_CONNECTED);
+	printf("CONNECTED\n");
+    set_state(STATE_CONNECTED);
 }
 
 static void disconnect_io()
@@ -175,15 +177,15 @@ static void primary_all_cb(GSList *services, guint8 status, gpointer user_data)
 	GSList *l;
 
 	if (status) {
-		printf("Discover all primary services failed: %s\n",
-							att_ecode2str(status));
+		printf("ERROR(1,%i): Discover all primary services failed: %s\n",
+               status, att_ecode2str(status));
 		return;
 	}
 
 	printf("\n");
 	for (l = services; l; l = l->next) {
 		struct gatt_primary *prim = l->data;
-		printf("attr handle: 0x%04x, end grp handle: 0x%04x "
+		printf("PRIMARY_ALL: attr handle: 0x%04x, end grp handle: 0x%04x "
 			"uuid: %s\n", prim->range.start, prim->range.end, prim->uuid);
 	}
 
@@ -196,16 +198,16 @@ static void primary_by_uuid_cb(GSList *ranges, guint8 status,
 	GSList *l;
 
 	if (status) {
-		printf("Discover primary services by UUID failed: %s\n",
-							att_ecode2str(status));
+		printf("ERROR(2,%i): Discover primary services by UUID failed: %s\n",
+               status, att_ecode2str(status));
 		return;
 	}
 
 	printf("\n");
 	for (l = ranges; l; l = l->next) {
 		struct att_range *range = l->data;
-		g_print("Starting handle: 0x%04x Ending handle: 0x%04x\n",
-						range->start, range->end);
+		printf("PRIMARY_ALL: attr handle: 0x%04x, end grp handle: 0x%04x", 
+               range->start, range->end);
 	}
 
 	rl_forced_update_display();
@@ -216,8 +218,8 @@ static void char_cb(GSList *characteristics, guint8 status, gpointer user_data)
 	GSList *l;
 
 	if (status) {
-		printf("Discover all characteristics failed: %s\n",
-							att_ecode2str(status));
+		printf("ERROR(3,%i): Discover all characteristics failed: %s\n",
+               status, att_ecode2str(status));
 		return;
 	}
 
@@ -225,7 +227,7 @@ static void char_cb(GSList *characteristics, guint8 status, gpointer user_data)
 	for (l = characteristics; l; l = l->next) {
 		struct gatt_char *chars = l->data;
 
-		printf("handle: 0x%04x, char properties: 0x%02x, char value "
+		printf("CHAR: handle: 0x%04x, char properties: 0x%02x, char value "
 				"handle: 0x%04x, uuid: %s\n", chars->handle,
 				chars->properties, chars->value_handle,
 				chars->uuid);
@@ -243,8 +245,8 @@ static void char_desc_cb(guint8 status, const guint8 *pdu, guint16 plen,
 	int i;
 
 	if (status != 0) {
-		printf("Discover descriptors finished: %s\n",
-						att_ecode2str(status));
+		printf("ERROR(4,%i): Discover descriptors finished: %s\n",
+               status, att_ecode2str(status));
 		return;
 	}
 
@@ -267,7 +269,7 @@ static void char_desc_cb(guint8 status, const guint8 *pdu, guint16 plen,
 			uuid = att_get_uuid128(&value[2]);
 
 		bt_uuid_to_string(&uuid, uuidstr, MAX_LEN_UUID_STR);
-		printf("handle: 0x%04x, uuid: %s\n", handle, uuidstr);
+		printf("CHAR-DESC: handle: 0x%04x, uuid: %s\n", handle, uuidstr);
 	}
 
 	att_data_list_free(list);
@@ -286,20 +288,20 @@ static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 	int i;
 
 	if (status != 0) {
-		printf("Characteristic value/descriptor read failed: %s\n",
-							att_ecode2str(status));
+		printf("ERROR(5,%i): Characteristic value/descriptor read failed: %s\n",
+               status, att_ecode2str(status));
 		return;
 	}
 
 	vlen = dec_read_resp(pdu, plen, value, sizeof(value));
 	if (vlen < 0) {
-		printf("Protocol error\n");
+		printf("ERROR(5,256): Protocol error\n");
 		return;
 	}
 
-	printf("\nCharacteristic value/descriptor: ");
+	printf("\nCHAR_VAL_DESC: Characteristic value/descriptor: ");
 	for (i = 0; i < vlen; i++)
-		printf("%02x ", value[i]);
+		printf("0x%02x ", value[i]);
 	printf("\n");
 
 	rl_forced_update_display();
@@ -317,8 +319,8 @@ static void char_read_by_uuid_cb(guint8 status, const guint8 *pdu,
 		goto done;
 
 	if (status != 0) {
-		printf("Read characteristics by UUID failed: %s\n",
-							att_ecode2str(status));
+		printf("ERROR(6,%i): Read characteristics by UUID failed: %s\n",
+               status, att_ecode2str(status));
 		goto done;
 	}
 
@@ -332,10 +334,11 @@ static void char_read_by_uuid_cb(guint8 status, const guint8 *pdu,
 
 		char_data->start = att_get_u16(value) + 1;
 
-		printf("\nhandle: 0x%04x \t value: ", att_get_u16(value));
+		printf("\nCHAR_READ_UUID: handle: 0x%04x \t value: ", 
+               att_get_u16(value));
 		value += 2;
 		for (j = 0; j < list->len - 2; j++, value++)
-			printf("%02x ", *value);
+			printf("0x%02x ", *value);
 		printf("\n");
 	}
 
@@ -356,7 +359,7 @@ static void cmd_exit(int argcp, char **argvp)
 static gboolean channel_watcher(GIOChannel *chan, GIOCondition cond,
 				gpointer user_data)
 {
-    printf("disconnected\n");
+    printf("\nDISCONNECTED");
 	disconnect_io();
 
 	return FALSE;
@@ -379,7 +382,7 @@ static void cmd_connect(int argcp, char **argvp)
 	}
 
 	if (opt_dst == NULL) {
-		printf("Remote Bluetooth address required\n");
+		printf("ERROR(7,256): Remote Bluetooth address required\n");
 		return;
 	}
 
@@ -402,7 +405,7 @@ static void cmd_primary(int argcp, char **argvp)
 	bt_uuid_t uuid;
 
 	if (conn_state != STATE_CONNECTED) {
-		printf("Command failed: disconnected\n");
+		printf("ERROR(8,257): Command failed: disconnected\n");
 		return;
 	}
 
@@ -412,7 +415,7 @@ static void cmd_primary(int argcp, char **argvp)
 	}
 
 	if (bt_string_to_uuid(&uuid, argvp[1]) < 0) {
-		printf("Invalid UUID\n");
+		printf("ERROR(8,258): Invalid UUID\n");
 		return;
 	}
 
@@ -438,14 +441,14 @@ static void cmd_char(int argcp, char **argvp)
 	int end = 0xffff;
 
 	if (conn_state != STATE_CONNECTED) {
-		printf("Command failed: disconnected\n");
+		printf("ERROR(9,256): Command failed: disconnected\n");
 		return;
 	}
 
 	if (argcp > 1) {
 		start = strtohandle(argvp[1]);
 		if (start < 0) {
-			printf("Invalid start handle: %s\n", argvp[1]);
+			printf("ERROR(9,257): Invalid start handle: %s\n", argvp[1]);
 			return;
 		}
 	}
@@ -453,7 +456,7 @@ static void cmd_char(int argcp, char **argvp)
 	if (argcp > 2) {
 		end = strtohandle(argvp[2]);
 		if (end < 0) {
-			printf("Invalid end handle: %s\n", argvp[2]);
+			printf("ERROR(9,258): Invalid end handle: %s\n", argvp[2]);
 			return;
 		}
 	}
@@ -462,7 +465,7 @@ static void cmd_char(int argcp, char **argvp)
 		bt_uuid_t uuid;
 
 		if (bt_string_to_uuid(&uuid, argvp[3]) < 0) {
-			printf("Invalid UUID\n");
+			printf("ERROR(9,259): Invalid UUID\n");
 			return;
 		}
 
@@ -476,14 +479,14 @@ static void cmd_char(int argcp, char **argvp)
 static void cmd_char_desc(int argcp, char **argvp)
 {
 	if (conn_state != STATE_CONNECTED) {
-		printf("Command failed: disconnected\n");
+		printf("ERROR(10,256): Command failed: disconnected\n");
 		return;
 	}
 
 	if (argcp > 1) {
 		start = strtohandle(argvp[1]);
 		if (start < 0) {
-			printf("Invalid start handle: %s\n", argvp[1]);
+			printf("ERROR(10,257): Invalid start handle: %s\n", argvp[1]);
 			return;
 		}
 	} else
@@ -492,7 +495,7 @@ static void cmd_char_desc(int argcp, char **argvp)
 	if (argcp > 2) {
 		end = strtohandle(argvp[2]);
 		if (end < 0) {
-			printf("Invalid end handle: %s\n", argvp[2]);
+			printf("ERROR(10,258): Invalid end handle: %s\n", argvp[2]);
 			return;
 		}
 	} else
@@ -507,18 +510,18 @@ static void cmd_read_hnd(int argcp, char **argvp)
 	int offset = 0;
 
 	if (conn_state != STATE_CONNECTED) {
-		printf("Command failed: disconnected\n");
+		printf("ERROR(11,256): Command failed: disconnected\n");
 		return;
 	}
 
 	if (argcp < 2) {
-		printf("Missing argument: handle\n");
+		printf("ERROR(11,257): Missing argument: handle\n");
 		return;
 	}
 
 	handle = strtohandle(argvp[1]);
 	if (handle < 0) {
-		printf("Invalid handle: %s\n", argvp[1]);
+		printf("ERROR(11,258): Invalid handle: %s\n", argvp[1]);
 		return;
 	}
 
@@ -528,7 +531,7 @@ static void cmd_read_hnd(int argcp, char **argvp)
 		errno = 0;
 		offset = strtol(argvp[2], &e, 0);
 		if (errno != 0 || *e != '\0') {
-			printf("Invalid offset: %s\n", argvp[2]);
+			printf("ERROR(11,259): Invalid offset: %s\n", argvp[2]);
 			return;
 		}
 	}
@@ -544,24 +547,24 @@ static void cmd_read_uuid(int argcp, char **argvp)
 	bt_uuid_t uuid;
 
 	if (conn_state != STATE_CONNECTED) {
-		printf("Command failed: disconnected\n");
+		printf("ERROR(12,256): Command failed: disconnected\n");
 		return;
 	}
 
 	if (argcp < 2) {
-		printf("Missing argument: UUID\n");
+		printf("ERROR(12,257): Missing argument: UUID\n");
 		return;
 	}
 
 	if (bt_string_to_uuid(&uuid, argvp[1]) < 0) {
-		printf("Invalid UUID\n");
+		printf("ERROR(12,258): Invalid UUID\n");
 		return;
 	}
 
 	if (argcp > 2) {
 		start = strtohandle(argvp[2]);
 		if (start < 0) {
-			printf("Invalid start handle: %s\n", argvp[1]);
+			printf("ERROR(12,259): Invalid start handle: %s\n", argvp[1]);
 			return;
 		}
 	}
@@ -569,7 +572,7 @@ static void cmd_read_uuid(int argcp, char **argvp)
 	if (argcp > 3) {
 		end = strtohandle(argvp[3]);
 		if (end < 0) {
-			printf("Invalid end handle: %s\n", argvp[2]);
+			printf("ERROR(12,260): Invalid end handle: %s\n", argvp[2]);
 			return;
 		}
 	}
@@ -588,17 +591,17 @@ static void char_write_req_cb(guint8 status, const guint8 *pdu, guint16 plen,
 							gpointer user_data)
 {
 	if (status != 0) {
-		printf("Characteristic Write Request failed: "
+		printf("ERROR(13,256): Characteristic Write Request failed: "
 						"%s\n", att_ecode2str(status));
 		return;
 	}
 
 	if (!dec_write_resp(pdu, plen) && !dec_exec_write_resp(pdu, plen)) {
-		printf("Protocol error\n");
+		printf("ERROR(12,257): Protocol error\n");
 		return;
 	}
 
-	printf("Characteristic value was written successfully\n");
+	printf("SUCCESS: Characteristic value was written successfully\n");
 }
 
 static void cmd_char_write(int argcp, char **argvp)
@@ -608,24 +611,24 @@ static void cmd_char_write(int argcp, char **argvp)
 	int handle;
 
 	if (conn_state != STATE_CONNECTED) {
-		printf("Command failed: disconnected\n");
+		printf("ERROR(14,256): Command failed: disconnected\n");
 		return;
 	}
 
 	if (argcp < 3) {
-		printf("Usage: %s <handle> <new value>\n", argvp[0]);
+		printf("ERROR(14,257): Usage: %s <handle> <new value>\n", argvp[0]);
 		return;
 	}
 
 	handle = strtohandle(argvp[1]);
 	if (handle <= 0) {
-		printf("A valid handle is required\n");
+		printf("ERROR(14,258): A valid handle is required\n");
 		return;
 	}
 
 	plen = gatt_attr_data_from_string(argvp[2], &value);
 	if (plen == 0) {
-		g_printerr("Invalid value\n");
+		g_printerr("ERROR(14,259): Invalid value\n");
 		return;
 	}
 
@@ -644,7 +647,7 @@ static void cmd_sec_level(int argcp, char **argvp)
 	BtIOSecLevel sec_level;
 
 	if (argcp < 2) {
-		printf("sec-level: %s\n", opt_sec_level);
+		printf("ERROR(15,256): sec-level: %s\n", opt_sec_level);
 		return;
 	}
 
@@ -655,7 +658,7 @@ static void cmd_sec_level(int argcp, char **argvp)
 	else if (strcasecmp(argvp[1], "low") == 0)
 		sec_level = BT_IO_SEC_LOW;
 	else {
-		printf("Allowed values: low | medium | high\n");
+		printf("ERROR(14,258): Allowed values: low | medium | high\n");
 		return;
 	}
 
@@ -666,7 +669,7 @@ static void cmd_sec_level(int argcp, char **argvp)
 		return;
 
 	if (opt_psm) {
-		printf("It must be reconnected to this change take effect\n");
+		printf("ERROR(14,259): It must be reconnected to this change take effect\n");
 		return;
 	}
 
@@ -674,7 +677,7 @@ static void cmd_sec_level(int argcp, char **argvp)
 			BT_IO_OPT_SEC_LEVEL, sec_level,
 			BT_IO_OPT_INVALID);
 	if (gerr) {
-		printf("Error: %s\n", gerr->message);
+		printf("ERROR(14,%i): Error: %s\n", gerr->code, gerr->message);
 		g_error_free(gerr);
 	}
 }
@@ -685,52 +688,52 @@ static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
 	uint16_t mtu;
 
 	if (status != 0) {
-		printf("Exchange MTU Request failed: %s\n",
-							att_ecode2str(status));
+		printf("ERROR(15,%i): Exchange MTU Request failed: %s\n",
+               status, att_ecode2str(status));
 		return;
 	}
 
 	if (!dec_mtu_resp(pdu, plen, &mtu)) {
-		printf("Protocol error\n");
+		printf("ERROR(15,256): Protocol error\n");
 		return;
 	}
 
 	mtu = MIN(mtu, opt_mtu);
 	/* Set new value for MTU in client */
 	if (g_attrib_set_mtu(attrib, mtu))
-		printf("MTU was exchanged successfully: %d\n", mtu);
+		printf("SUCCESS: MTU was exchanged successfully: %d\n", mtu);
 	else
-		printf("Error exchanging MTU\n");
+		printf("ERROR(15,258): Error exchanging MTU\n");
 }
 
 static void cmd_mtu(int argcp, char **argvp)
 {
 	if (conn_state != STATE_CONNECTED) {
-		printf("Command failed: not connected.\n");
+		printf("ERROR(16,256): Command failed: not connected.\n");
 		return;
 	}
 
 	if (opt_psm) {
-		printf("Command failed: operation is only available for LE"
-							" transport.\n");
+		printf("ERROR(14,258): Command failed: operation is only available for"
+               " LE transport.\n");
 		return;
 	}
 
 	if (argcp < 2) {
-		printf("Usage: mtu <value>\n");
+		printf("ERROR(14,259): Usage: mtu <value>\n");
 		return;
 	}
 
 	if (opt_mtu) {
-		printf("Command failed: MTU exchange can only occur once per"
-							" connection.\n");
+		printf("ERROR(14,260): Command failed: MTU exchange can only occur"
+               " once per connection.\n");
 		return;
 	}
 
 	errno = 0;
 	opt_mtu = strtoll(argvp[1], NULL, 0);
 	if (errno != 0 || opt_mtu < ATT_DEFAULT_LE_MTU) {
-		printf("Invalid value. Minimum MTU size is %d\n",
+		printf("ERROR(14,261): Invalid value. Minimum MTU size is %d\n",
 							ATT_DEFAULT_LE_MTU);
 		return;
 	}
@@ -812,7 +815,7 @@ static void parse_line(char *line_read)
 	if (commands[i].cmd)
 		commands[i].func(argcp, argvp);
 	else
-		printf("%s: command not found\n", argvp[0]);
+		printf("ERROR(15,256): %s: command not found\n", argvp[0]);
 
 	g_strfreev(argvp);
 }
