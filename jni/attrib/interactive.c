@@ -74,9 +74,9 @@ static char *get_prompt(void)
     }
 
     if (conn_state == STATE_CONNECTED)
-        g_string_assign(prompt, "[CON]");
+        g_string_assign(prompt, "\n[CON]");
     else
-        g_string_assign(prompt, "[   ]");
+        g_string_assign(prompt, "\n[   ]");
 
     if (opt_dst)
         g_string_append_printf(prompt, "[%17s]", opt_dst);
@@ -84,9 +84,9 @@ static char *get_prompt(void)
         g_string_append_printf(prompt, "[%17s]", "");
 
     if (opt_psm)
-        g_string_append(prompt, "[BR]");
+        g_string_append(prompt, "[BR]\n");
     else
-        g_string_append(prompt, "[LE]");
+        g_string_append(prompt, "[LE]\n");
 
     g_string_append(prompt, "> ");
 
@@ -152,7 +152,7 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
                             attrib, NULL);
     g_attrib_register(attrib, ATT_OP_HANDLE_IND, events_handler,
                             attrib, NULL);
-    printf("\nCONNECTED\n");
+    printf("\nCONNECTED: %s\n", opt_dst);
     set_state(STATE_CONNECTED);
 }
 
@@ -188,7 +188,7 @@ static void primary_all_cb(GSList *services, guint8 status, gpointer user_data)
         printf("PRIMARY-ALL: attr handle: 0x%04x, end grp handle: 0x%04x "
             "uuid: %s\n", prim->range.start, prim->range.end, prim->uuid);
     }
-    printf("PRIMARY-END\n");
+    printf("PRIMARY-END: %s\n", opt_dst);
 
     rl_forced_update_display();
 }
@@ -210,7 +210,7 @@ static void primary_by_uuid_cb(GSList *ranges, guint8 status,
         printf("PRIMARY-UUID: attr handle: 0x%04x, end grp handle: 0x%04x\n", 
                range->start, range->end);
     }
-    printf("PRIMARY-UUID-END\n");
+    printf("PRIMARY-UUID-END: %s\n", opt_dst);
 
     rl_forced_update_display();
 }
@@ -234,7 +234,7 @@ static void char_cb(GSList *characteristics, guint8 status, gpointer user_data)
                 chars->properties, chars->value_handle,
                 chars->uuid);
     }
-    printf("CHAR-END\n");
+    printf("CHAR-END: %s\n", opt_dst);
 
     rl_forced_update_display();
 }
@@ -274,7 +274,7 @@ static void char_desc_cb(guint8 status, const guint8 *pdu, guint16 plen,
         bt_uuid_to_string(&uuid, uuidstr, MAX_LEN_UUID_STR);
         printf("CHAR-DESC: handle: 0x%04x, uuid: %s\n", handle, uuidstr);
     }
-    printf("CHAR-DESC-END");
+    printf("CHAR-DESC-END: %s", opt_dst);
 
     att_data_list_free(list);
 
@@ -345,7 +345,7 @@ static void char_read_by_uuid_cb(guint8 status, const guint8 *pdu,
             printf("0x%02x ", *value);
         printf("\n");
     }
-    printf("CHAR-READ-UUID-END\n");
+    printf("CHAR-READ-UUID-END: %s\n", opt_dst);
 
     att_data_list_free(list);
 
@@ -364,7 +364,7 @@ static void cmd_exit(int argcp, char **argvp)
 static gboolean channel_watcher(GIOChannel *chan, GIOCondition cond,
                 gpointer user_data)
 {
-    printf("\nDISCONNECTED\n");
+    printf("\nDISCONNECTED: %s\n", opt_dst);
     disconnect_io();
 
     return FALSE;
