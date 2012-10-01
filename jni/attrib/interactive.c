@@ -113,13 +113,13 @@ static void events_handler(const uint8_t *pdu, uint16_t len, gpointer user_data)
     printf("\n");
     switch (pdu[0]) {
     case ATT_OP_HANDLE_NOTIFY:
-        printf("NOTIFICATION: handle = 0x%04x value: ", handle);
+        printf("NOTIFICATION: %s, handle = 0x%04x value: ", opt_dst, handle);
         break;
     case ATT_OP_HANDLE_IND:
-        printf("INDICATION: handle = 0x%04x value: ", handle);
+        printf("INDICATION: %s, handle = 0x%04x value: ", opt_dst, handle);
         break;
     default:
-        printf("EVENT: Invalid opcode\n");
+        printf("ERROR(16,256): Invalid opcode\n");
         return;
     }
 
@@ -606,7 +606,7 @@ static void char_write_req_cb(guint8 status, const guint8 *pdu, guint16 plen,
         return;
     }
 
-    printf("\nSUCCESS: Characteristic value was written successfully\n");
+    printf("\nCHAR-WRITE-SUCCESS: %s", opt_dst);
 }
 
 static void cmd_char_write(int argcp, char **argvp)
@@ -686,6 +686,8 @@ static void cmd_sec_level(int argcp, char **argvp)
         printf("\nERROR(14,%i): Error: %s\n", gerr->code, gerr->message);
         g_error_free(gerr);
     }
+
+    printf("\nSEC-LEVEL-SUCCESS: %s", opt_dst);
 }
 
 static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
@@ -707,7 +709,7 @@ static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
     mtu = MIN(mtu, opt_mtu);
     /* Set new value for MTU in client */
     if (g_attrib_set_mtu(attrib, mtu))
-        printf("\nSUCCESS: MTU was exchanged successfully: %d\n", mtu);
+        printf("\nMTU-SUCCESS: %s, mtu=%d\n", opt_dst, mtu);
     else
         printf("\nERROR(15,258): Error exchanging MTU\n");
 }
