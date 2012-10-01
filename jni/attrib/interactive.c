@@ -113,10 +113,10 @@ static void events_handler(const uint8_t *pdu, uint16_t len, gpointer user_data)
     printf("\n");
     switch (pdu[0]) {
     case ATT_OP_HANDLE_NOTIFY:
-        printf("NOTIFICATION: %s, handle = 0x%04x value: ", opt_dst, handle);
+        printf("NOTIFICATION: %s 0x%04x ", opt_dst, handle);
         break;
     case ATT_OP_HANDLE_IND:
-        printf("INDICATION: %s, handle = 0x%04x value: ", opt_dst, handle);
+        printf("INDICATION: %s 0x%04x ", opt_dst, handle);
         break;
     default:
         printf("ERROR(16,256): Invalid opcode\n");
@@ -185,10 +185,10 @@ static void primary_all_cb(GSList *services, guint8 status, gpointer user_data)
     printf("\n");
     for (l = services; l; l = l->next) {
         struct gatt_primary *prim = l->data;
-        printf("PRIMARY-ALL: attr handle: 0x%04x, end grp handle: 0x%04x "
-            "uuid: %s\n", prim->range.start, prim->range.end, prim->uuid);
+        printf("PRIMARY-ALL: %s 0x%04x 0x%04x %s\n", opt_dst, 
+               prim->range.start, prim->range.end, prim->uuid);
     }
-    printf("PRIMARY-END: %s\n", opt_dst);
+    printf("PRIMARY-ALL-END: %s\n", opt_dst);
 
     rl_forced_update_display();
 }
@@ -207,8 +207,8 @@ static void primary_by_uuid_cb(GSList *ranges, guint8 status,
     printf("\n");
     for (l = ranges; l; l = l->next) {
         struct att_range *range = l->data;
-        printf("PRIMARY-UUID: attr handle: 0x%04x, end grp handle: 0x%04x\n", 
-               range->start, range->end);
+        printf("PRIMARY-UUID: %s 0x%04x 0x%04x\n", opt_dst, range->start, 
+               range->end);
     }
     printf("PRIMARY-UUID-END: %s\n", opt_dst);
 
@@ -229,10 +229,8 @@ static void char_cb(GSList *characteristics, guint8 status, gpointer user_data)
     for (l = characteristics; l; l = l->next) {
         struct gatt_char *chars = l->data;
 
-        printf("CHAR: handle: 0x%04x, char properties: 0x%02x, char value "
-                "handle: 0x%04x, uuid: %s\n", chars->handle,
-                chars->properties, chars->value_handle,
-                chars->uuid);
+        printf("CHAR: %s 0x%04x 0x%02x 0x%04x %s\n", opt_dst, chars->handle,
+               chars->properties, chars->value_handle, chars->uuid);
     }
     printf("CHAR-END: %s\n", opt_dst);
 
@@ -272,7 +270,7 @@ static void char_desc_cb(guint8 status, const guint8 *pdu, guint16 plen,
             uuid = att_get_uuid128(&value[2]);
 
         bt_uuid_to_string(&uuid, uuidstr, MAX_LEN_UUID_STR);
-        printf("CHAR-DESC: handle: 0x%04x, uuid: %s\n", handle, uuidstr);
+        printf("CHAR-DESC: %s 0x%04x %s\n", opt_dst, handle, uuidstr);
     }
     printf("CHAR-DESC-END: %s", opt_dst);
 
@@ -303,7 +301,7 @@ static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
         return;
     }
 
-    printf("\nCHAR-VAL-DESC: Characteristic value/descriptor: ");
+    printf("\nCHAR-VAL-DESC: %s ", opt_dst);
     for (i = 0; i < vlen; i++)
         printf("0x%02x ", value[i]);
     printf("\n");
@@ -338,8 +336,7 @@ static void char_read_by_uuid_cb(guint8 status, const guint8 *pdu,
 
         char_data->start = att_get_u16(value) + 1;
 
-        printf("\nCHAR-READ-UUID: handle: 0x%04x \t value: ", 
-               att_get_u16(value));
+        printf("\nCHAR-READ-UUID: %s 0x%04x ", opt_dst, att_get_u16(value));
         value += 2;
         for (j = 0; j < list->len - 2; j++, value++)
             printf("0x%02x ", *value);
