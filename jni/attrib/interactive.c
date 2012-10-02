@@ -807,7 +807,7 @@ static void cmd_psm(int argcp, char **argvp)
     errno = 0;
     opt_psm = strtoll(argvp[1], NULL, 0);
     
-    printf("\nPSM: %i\n", opt_psm);
+    printf("\nPSM: 00:00:00:00:00:00 %i\n", opt_psm);
     rl_forced_update_display();
 }
 
