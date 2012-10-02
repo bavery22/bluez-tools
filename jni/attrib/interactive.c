@@ -142,7 +142,7 @@ static void events_handler(const uint8_t *pdu, uint16_t len, gpointer user_data)
 static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
 {
     if (err) {
-        printf("\nERROR(0,%i): %s\n", err->code, err->message);
+        printf("\nCONNECTED: %s %i %s\n", opt_dst, err->code, err->message);
         set_state(STATE_DISCONNECTED);
         return;
     }
@@ -152,7 +152,7 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
                             attrib, NULL);
     g_attrib_register(attrib, ATT_OP_HANDLE_IND, events_handler,
                             attrib, NULL);
-    printf("\nCONNECTED: %s\n", opt_dst);
+    printf("\nCONNECTED: %s 0\n", opt_dst);
     set_state(STATE_CONNECTED);
 }
 
@@ -177,8 +177,8 @@ static void primary_all_cb(GSList *services, guint8 status, gpointer user_data)
     GSList *l;
 
     if (status) {
-        printf("\nERROR(1,%i): Discover all primary services failed: %s\n",
-               status, att_ecode2str(status));
+        printf("\nPRIMARY-ALL-END: %s %i %s\n", opt_dst, status, 
+               att_ecode2str(status));
         return;
     }
 
@@ -188,7 +188,7 @@ static void primary_all_cb(GSList *services, guint8 status, gpointer user_data)
         printf("PRIMARY-ALL: %s %04x %04x %s\n", opt_dst, 
                prim->range.start, prim->range.end, prim->uuid);
     }
-    printf("PRIMARY-ALL-END: %s\n", opt_dst);
+    printf("PRIMARY-ALL-END: %s 0\n", opt_dst);
 
     rl_forced_update_display();
 }
@@ -199,8 +199,8 @@ static void primary_by_uuid_cb(GSList *ranges, guint8 status,
     GSList *l;
 
     if (status) {
-        printf("\nERROR(2,%i): Discover primary services by UUID failed: %s\n",
-               status, att_ecode2str(status));
+        printf("PRIMARY-UUID-END: %s %i %s\n", opt_dst, status, 
+               att_ecode2str(status));
         return;
     }
 
@@ -210,7 +210,7 @@ static void primary_by_uuid_cb(GSList *ranges, guint8 status,
         printf("PRIMARY-UUID: %s %04x %04x\n", opt_dst, range->start, 
                range->end);
     }
-    printf("PRIMARY-UUID-END: %s\n", opt_dst);
+    printf("PRIMARY-UUID-END: %s 0\n", opt_dst);
 
     rl_forced_update_display();
 }
@@ -220,8 +220,7 @@ static void char_cb(GSList *characteristics, guint8 status, gpointer user_data)
     GSList *l;
 
     if (status) {
-        printf("\nERROR(3,%i): Discover all characteristics failed: %s\n",
-               status, att_ecode2str(status));
+        printf("CHAR-END: %s %i %s\n", opt_dst, status, att_ecode2str(status));
         return;
     }
 
@@ -232,7 +231,7 @@ static void char_cb(GSList *characteristics, guint8 status, gpointer user_data)
         printf("CHAR: %s %04x %02x %04x %s\n", opt_dst, chars->handle,
                chars->properties, chars->value_handle, chars->uuid);
     }
-    printf("CHAR-END: %s\n", opt_dst);
+    printf("CHAR-END: %s 0\n", opt_dst);
 
     rl_forced_update_display();
 }
@@ -246,8 +245,8 @@ static void char_desc_cb(guint8 status, const guint8 *pdu, guint16 plen,
     int i;
 
     if (status != 0) {
-        printf("\nERROR(4,%i): Discover descriptors finished: %s\n",
-               status, att_ecode2str(status));
+        printf("CHAR-DESC-END: %s %i %s\n", opt_dst, status, 
+               att_ecode2str(status));
         return;
     }
 
@@ -272,7 +271,7 @@ static void char_desc_cb(guint8 status, const guint8 *pdu, guint16 plen,
         bt_uuid_to_string(&uuid, uuidstr, MAX_LEN_UUID_STR);
         printf("CHAR-DESC: %s %04x %s\n", opt_dst, handle, uuidstr);
     }
-    printf("CHAR-DESC-END: %s", opt_dst);
+    printf("CHAR-DESC-END: %s 0\n", opt_dst);
 
     att_data_list_free(list);
 
@@ -290,8 +289,8 @@ static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
     int i;
 
     if (status != 0) {
-        printf("\nERROR(5,%i): Characteristic value/descriptor read failed: "
-               "%s\n", status, att_ecode2str(status));
+        printf("\nCHAR-VAL-DESC: %s %i %s\n", opt_dst, status, 
+               att_ecode2str(status));
         return;
     }
 
@@ -301,7 +300,7 @@ static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
         return;
     }
 
-    printf("\nCHAR-VAL-DESC: %s ", opt_dst);
+    printf("\nCHAR-VAL-DESC: %s 0 ", opt_dst);
     for (i = 0; i < vlen; i++)
         printf("%02x ", value[i]);
     printf("\n");
@@ -321,8 +320,8 @@ static void char_read_by_uuid_cb(guint8 status, const guint8 *pdu,
         goto done;
 
     if (status != 0) {
-        printf("\nERROR(6,%i): Read characteristics by UUID failed: %s\n",
-               status, att_ecode2str(status));
+        printf("CHAR-READ-UUID-END: %s %i %s\n", opt_dst, status, 
+               att_ecode2str(status));
         goto done;
     }
 
@@ -342,7 +341,7 @@ static void char_read_by_uuid_cb(guint8 status, const guint8 *pdu,
             printf("%02x ", *value);
         printf("\n");
     }
-    printf("CHAR-READ-UUID-END: %s\n", opt_dst);
+    printf("CHAR-READ-UUID-END: %s 0\n", opt_dst);
 
     att_data_list_free(list);
 
@@ -593,8 +592,8 @@ static void char_write_req_cb(guint8 status, const guint8 *pdu, guint16 plen,
                             gpointer user_data)
 {
     if (status != 0) {
-        printf("\nERROR(13,256): Characteristic Write Request failed: "
-                        "%s\n", att_ecode2str(status));
+        printf("\nCHAR-WRITE: %s %i %s\n", opt_dst, status,
+               att_ecode2str(status));
         return;
     }
 
@@ -603,7 +602,7 @@ static void char_write_req_cb(guint8 status, const guint8 *pdu, guint16 plen,
         return;
     }
 
-    printf("\nCHAR-WRITE-SUCCESS: %s", opt_dst);
+    printf("\nCHAR-WRITE: %s 0\n", opt_dst);
 }
 
 static void cmd_char_write(int argcp, char **argvp)
@@ -680,11 +679,12 @@ static void cmd_sec_level(int argcp, char **argvp)
             BT_IO_OPT_SEC_LEVEL, sec_level,
             BT_IO_OPT_INVALID);
     if (gerr) {
-        printf("\nERROR(14,%i): Error: %s\n", gerr->code, gerr->message);
+        printf("\nSEC-LEVEL: %s %i %s\n", opt_dst, gerr->code, 
+               gerr->message);
         g_error_free(gerr);
     }
 
-    printf("\nSEC-LEVEL-SUCCESS: %s", opt_dst);
+    printf("\nSEC-LEVEL: %s 0\n", opt_dst);
 }
 
 static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
@@ -706,9 +706,9 @@ static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
     mtu = MIN(mtu, opt_mtu);
     /* Set new value for MTU in client */
     if (g_attrib_set_mtu(attrib, mtu))
-        printf("\nMTU-SUCCESS: %s, mtu=%d\n", opt_dst, mtu);
+        printf("\nMTU: %s 0\n", opt_dst);
     else
-        printf("\nERROR(15,258): Error exchanging MTU\n");
+        printf("\nMTU: %s 129 Error exchanging MTU\n");
 }
 
 static void cmd_mtu(int argcp, char **argvp)
