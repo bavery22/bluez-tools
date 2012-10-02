@@ -844,7 +844,7 @@ static struct {
     { "mtu",        cmd_mtu,    "<value>",
         "Exchange MTU for GATT/ATT" },
     { "psm",        cmd_psm,    "<value>",
-        "Set PSM for GATT/ATT over BR"}
+      "Set PSM for GATT/ATT over BR"},
     { NULL, NULL, NULL}
 };
 
