@@ -170,6 +170,8 @@ static void disconnect_io()
     g_io_channel_unref(iochannel);
     iochannel = NULL;
 
+    printf("\nDISCONNECTED: %s\n", opt_dst);
+
     set_state(STATE_DISCONNECTED);
 }
 
