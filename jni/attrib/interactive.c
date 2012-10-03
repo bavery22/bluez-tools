@@ -385,7 +385,7 @@ static void cmd_exit(int argcp, char **argvp)
 static gboolean channel_watcher(GIOChannel *chan, GIOCondition cond,
                 gpointer user_data)
 {
-    printf("\nDISCONNECTED(%04x): %s\n", conn_handle);
+    printf("\nDISCONNECTED(%04x): %s\n", conn_handle, opt_dst);
     disconnect_io();
     rl_forced_update_display();
     return FALSE;
