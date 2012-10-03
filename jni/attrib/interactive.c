@@ -48,8 +48,10 @@ static gchar *opt_dst_type = NULL;
 static gchar *opt_sec_level = NULL;
 static int opt_psm = 0;
 static int opt_mtu = 0;
+static uint16_t conn_handle = 0;
 static int start;
 static int end;
+
 
 struct characteristic_data {
     uint16_t orig_start;
@@ -97,6 +99,9 @@ static char *get_prompt(void)
 static void set_state(enum state st)
 {
     conn_state = st;
+    if (conn_state != STATE_CONNECTED){
+        conn_handle = 0;
+    }
     rl_on_new_line();
     rl_set_prompt(get_prompt());
     rl_redisplay();
@@ -142,8 +147,9 @@ static void events_handler(const uint8_t *pdu, uint16_t len, gpointer user_data)
 static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
 {
     if (err) {
-        printf("\nCONNECTED: %s %i %s\n", opt_dst, err->code, err->message);
         set_state(STATE_DISCONNECTED);
+        printf("\nCONNECTED: %s %04X %i %s\n", opt_dst, conn_handle,
+               err->code, err->message);
         rl_forced_update_display();
         return;
     }
@@ -153,7 +159,18 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
                             attrib, NULL);
     g_attrib_register(attrib, ATT_OP_HANDLE_IND, events_handler,
                             attrib, NULL);
-    printf("\nCONNECTED: %s 0\n", opt_dst);
+    
+    GError *gerr = NULL;
+
+    // get connection handle
+    bt_io_get(iochannel, &gerr, BT_IO_OPT_HANDLE, &conn_handle,
+              BT_IO_OPT_INVALID);
+    if (gerr){
+        printf("ERROR(20,%i): %s %s", opt_dst, gerr->code, gerr->message);
+        conn_handle = 0;
+    }
+
+    printf("\nCONNECTED: %s %04X 0\n", opt_dst, conn_handle);
     set_state(STATE_CONNECTED);
 }
 
