@@ -687,8 +687,13 @@ static void cmd_char_write(int argcp, char **argvp)
     if (g_strcmp0("char-write-req", argvp[0]) == 0)
         gatt_write_char(attrib, handle, value, plen,
                     char_write_req_cb, NULL);
-    else
+    else {
         gatt_write_char(attrib, handle, value, plen, NULL, NULL);
+        printf("\nCHAR-WRITE(%04x): %i 0\n", conn_handle); 
+        // let other end know we sent the request
+        rl_forced_update_display();
+        return;
+    }
 
     g_free(value);
 }
@@ -699,7 +704,7 @@ static void cmd_sec_level(int argcp, char **argvp)
     BtIOSecLevel sec_level;
 
     if (argcp < 2) {
-        printf("\nERROR(%04x): (15,256): sec-level: %s\n", conn_handle, opt_sec_level);
+        printf("\nSEC-LEVEL(%04x): 0 %s\n", conn_handle, opt_sec_level);
         rl_forced_update_display();
         return;
     }
@@ -719,26 +724,31 @@ static void cmd_sec_level(int argcp, char **argvp)
     g_free(opt_sec_level);
     opt_sec_level = g_strdup(argvp[1]);
 
-    if (conn_state != STATE_CONNECTED)
-        return;
-
-    if (opt_psm) {
-        printf("\nERROR(%04x): (14,259): It must be reconnected to this change "
-               "take effect\n", conn_handle);
+    if (!opt_psm && conn_state != STATE_CONNECTED){
+        printf("\nERROR(0000): (14, 260): It can only be done when connected"
+               " for LE connections\n");
         rl_forced_update_display();
         return;
     }
 
-    bt_io_set(iochannel, &gerr,
-            BT_IO_OPT_SEC_LEVEL, sec_level,
-            BT_IO_OPT_INVALID);
-    if (gerr) {
-        printf("\nSEC-LEVEL(%04x): %i %s\n", conn_handle, gerr->code, 
-               gerr->message);
-        g_error_free(gerr);
+    if (opt_psm && conn_state != STATE_DISCONNECTED) {
+        printf("\nERROR(%04x): (14,259): It must be disconnected to this "
+               "change take effect\n", conn_handle);
+        rl_forced_update_display();
+    }
+    
+    if ( iochannel != NULL ){
+        bt_io_set(iochannel, &gerr,
+              BT_IO_OPT_SEC_LEVEL, sec_level,
+              BT_IO_OPT_INVALID);
+        if (gerr) {
+            printf("\nSEC-LEVEL(%04x): %i %s\n", conn_handle, gerr->code, 
+                   gerr->message);
+            g_error_free(gerr);
+        }
     }
 
-    printf("\nSEC-LEVEL: %s 0\n", opt_dst);
+    printf("\nSEC-LEVEL(%04x): 0 %s\n", conn_handle, opt_sec_level);
 }
 
 static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
