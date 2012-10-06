@@ -125,6 +125,7 @@ static void events_handler(const uint8_t *pdu, uint16_t len, gpointer user_data)
         break;
     default:
         printf("ERROR(%04x): (16,256) Invalid opcode\n", conn_handle);
+        rl_forced_update_display();
         return;
     }
 
@@ -166,8 +167,11 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
     bt_io_get(iochannel, &gerr, BT_IO_OPT_HANDLE, &conn_handle,
               BT_IO_OPT_INVALID);
     if (gerr){
-        printf("ERROR(%04x): (20,%i) %s %s", conn_handle, opt_dst, gerr->code, gerr->message);
+        printf("ERROR(%04x): (20,%i) %s %s", conn_handle, opt_dst, gerr->code, 
+               gerr->message);
         conn_handle = 0;
+        rl_forced_update_display();
+        return;
     }
 
     printf("\nCONNECTED(%04x): %s 0\n", conn_handle, opt_dst);
@@ -315,13 +319,14 @@ static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
     if (status != 0) {
         printf("\nCHAR-VAL-DESC(%04x): %i %s\n", conn_handle, status, 
                att_ecode2str(status));
-        
+        rl_forced_update_display();
         return;
     }
 
     vlen = dec_read_resp(pdu, plen, value, sizeof(value));
     if (vlen < 0) {
         printf("\nERROR(%04x): (5,256): Protocol error\n", conn_handle);
+        rl_forced_update_display();
         return;
     }
 
@@ -370,9 +375,8 @@ static void char_read_by_uuid_cb(guint8 status, const guint8 *pdu,
 
     att_data_list_free(list);
 
-    rl_forced_update_display();
-
 done:
+    rl_forced_update_display();
     g_free(char_data);
 }
 
@@ -637,19 +641,17 @@ static void char_write_req_cb(guint8 status, const guint8 *pdu, guint16 plen,
                             gpointer user_data)
 {
     if (status != 0) {
-        printf("\nCHAR-WRITE(%04x): %i %s\n", conn_handle, status,
+        printf("\nCHAR-WRITE-REQ(%04x): %i %s\n", conn_handle, status,
                att_ecode2str(status));
         rl_forced_update_display();
         return;
     }
 
-    if (!dec_write_resp(pdu, plen) && !dec_exec_write_resp(pdu, plen)) {
-        printf("\nERROR(%04x): (12,257): Protocol error\n", conn_handle);
-        rl_forced_update_display();
-        return;
-    }
-
-    printf("\nCHAR-WRITE: %s 0\n", opt_dst);
+    if (!dec_write_resp(pdu, plen) && !dec_exec_write_resp(pdu, plen))
+        printf("\nCHAR-WRITE-REQ(%04x): 1\n", conn_handle);
+    else 
+        printf("\nCHAR-WRITE-REQ(%04x): 0\n", conn_handle);
+    rl_forced_update_display();
 }
 
 static void cmd_char_write(int argcp, char **argvp)
@@ -689,7 +691,7 @@ static void cmd_char_write(int argcp, char **argvp)
                     char_write_req_cb, NULL);
     else {
         gatt_write_char(attrib, handle, value, plen, NULL, NULL);
-        printf("\nCHAR-WRITE(%04x): %i 0\n", conn_handle); 
+        printf("\nCHAR-WRITE-CMD(%04x): 0\n", conn_handle); 
         // let other end know we sent the request
         rl_forced_update_display();
         return;
@@ -745,10 +747,13 @@ static void cmd_sec_level(int argcp, char **argvp)
             printf("\nSEC-LEVEL(%04x): %i %s\n", conn_handle, gerr->code, 
                    gerr->message);
             g_error_free(gerr);
+            rl_forced_update_display();
+            return;
         }
     }
 
     printf("\nSEC-LEVEL(%04x): 0 %s\n", conn_handle, opt_sec_level);
+    rl_forced_update_display();
 }
 
 static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
@@ -774,6 +779,7 @@ static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
         printf("\nMTU(%04x): 0\n", conn_handle);
     else
         printf("\nMTU(%04x): 129 Error exchanging MTU\n", conn_handle);
+    rl_forced_update_display();
 }
 
 static void cmd_mtu(int argcp, char **argvp)
