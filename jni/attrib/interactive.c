@@ -167,8 +167,8 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
     bt_io_get(iochannel, &gerr, BT_IO_OPT_HANDLE, &conn_handle,
               BT_IO_OPT_INVALID);
     if (gerr){
-        printf("ERROR(%04x): (20,%i) %s %s", conn_handle, opt_dst, gerr->code, 
-               gerr->message);
+        printf("CONNECTED(%04x): %s %i %s\n", conn_handle, opt_dst, 
+               gerr->code, gerr->message);
         conn_handle = 0;
         rl_forced_update_display();
         return;
@@ -325,7 +325,9 @@ static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 
     vlen = dec_read_resp(pdu, plen, value, sizeof(value));
     if (vlen < 0) {
-        printf("\nERROR(%04x): (5,256): Protocol error\n", conn_handle);
+        status = ATT_ECODE_INVALID_PDU;
+        printf("\nCHAR-VAL-DESC(%04x): %i %s\n", conn_handle, status,
+               att_ecode2str(status));
         rl_forced_update_display();
         return;
     }
@@ -412,7 +414,8 @@ static void cmd_connect(int argcp, char **argvp)
     }
 
     if (opt_dst == NULL) {
-        printf("\nERROR(0000): (7,256): Remote Bluetooth address required\n");
+        printf("\nCONNECT(0000): 1 00:00:00:00:00:00 "
+               "Remote Bluetooth address required\n");
         rl_forced_update_display();
         return;
     }
@@ -436,7 +439,10 @@ static void cmd_primary(int argcp, char **argvp)
     bt_uuid_t uuid;
 
     if (conn_state != STATE_CONNECTED) {
-        printf("\nERROR(0000): (8,257): Command failed: disconnected\n");
+        if (argcp)
+            printf("\nPRIMARY-ALL(0000): 256 Command failed: disconnected\n");
+        else
+            printf("\nPRIMARY-UUID(0000): 256 Command failed: disconnected\n");
         rl_forced_update_display();
         return;
     }
@@ -448,7 +454,7 @@ static void cmd_primary(int argcp, char **argvp)
     }
 
     if (bt_string_to_uuid(&uuid, argvp[1]) < 0) {
-        printf("\nERROR(%04x): (8,258): Invalid UUID\n", conn_handle);
+        printf("\nPRIMARY-UUID(%04x): 1 Invalid UUID\n", conn_handle);
         rl_forced_update_display();
         return;
     }
@@ -475,7 +481,7 @@ static void cmd_char(int argcp, char **argvp)
     int end = 0xffff;
 
     if (conn_state != STATE_CONNECTED) {
-        printf("\nERROR(0000): (9,256): Command failed: disconnected\n");
+        printf("\nCHAR-DESC-END(0000): 256 disconnected\n");
         rl_forced_update_display();
         return;
     }
@@ -483,7 +489,8 @@ static void cmd_char(int argcp, char **argvp)
     if (argcp > 1) {
         start = strtohandle(argvp[1]);
         if (start < 0) {
-            printf("\nERROR(%04x): (9,257): Invalid start handle: %s\n", conn_handle, argvp[1]);
+            printf("\nCHAR-DESC-END(%04x): %i Invalid start handle: %s\n", 
+                   conn_handle, ATT_ECODE_INVALID_HANDLE, argvp[1]);
             rl_forced_update_display();
             return;
         }
@@ -492,7 +499,8 @@ static void cmd_char(int argcp, char **argvp)
     if (argcp > 2) {
         end = strtohandle(argvp[2]);
         if (end < 0) {
-            printf("\nERROR(%04x): (9,258): Invalid end handle: %s\n", conn_handle, argvp[2]);
+            printf("\nCHAR-DESC-END(%04x): %i Invalid end handle: %s\n", 
+                   conn_handle, ATT_ECODE_INVALID_HANDLE, argvp[2]);
             rl_forced_update_display();
             return;
         }
@@ -502,7 +510,8 @@ static void cmd_char(int argcp, char **argvp)
         bt_uuid_t uuid;
 
         if (bt_string_to_uuid(&uuid, argvp[3]) < 0) {
-            printf("\nERROR(%04x): (9,259): Invalid UUID\n", conn_handle);
+            printf("\nCHAR-DESC-END(%04x): %i Invalid UUID\n", 
+                   conn_handle, ATT_ECODE_UNLIKELY);
             rl_forced_update_display();
             return;
         }
@@ -517,7 +526,7 @@ static void cmd_char(int argcp, char **argvp)
 static void cmd_char_desc(int argcp, char **argvp)
 {
     if (conn_state != STATE_CONNECTED) {
-        printf("\nERROR(0000): (10,256): Command failed: disconnected\n");
+        printf("\nCHAR-DESC-END(0000): 256 Command failed: disconnected\n");
         rl_forced_update_display();
         return;
     }
@@ -525,7 +534,8 @@ static void cmd_char_desc(int argcp, char **argvp)
     if (argcp > 1) {
         start = strtohandle(argvp[1]);
         if (start < 0) {
-            printf("\nERROR(%04x): (10,257): Invalid start handle: %s\n", conn_handle, argvp[1]);
+            printf("\nCHAR-DESC-END(%04x): %i Invalid start handle: %s\n", 
+                   conn_handle, ATT_ECODE_INVALID_HANDLE, argvp[1]);
             rl_forced_update_display();
             return;
         }
@@ -534,8 +544,9 @@ static void cmd_char_desc(int argcp, char **argvp)
 
     if (argcp > 2) {
         end = strtohandle(argvp[2]);
-        if (end < 0) {
-            printf("\nERROR(%04x): (10,258): Invalid end handle: %s\n", conn_handle, argvp[2]);
+        if (end < start) {
+            printf("\nCHAR-DESC-END(%04x): %i Invalid end handle: %s\n\n", 
+                   conn_handle, ATT_ECODE_INVALID_HANDLE, argvp[2]);
             rl_forced_update_display();
             return;
         }
@@ -551,20 +562,22 @@ static void cmd_read_hnd(int argcp, char **argvp)
     int offset = 0;
 
     if (conn_state != STATE_CONNECTED) {
-        printf("\nERROR(0000): (11,256): Command failed: disconnected\n");
+        printf("\nCHAR-READ-HND(0000): 256 Command failed: disconnected\n");
         rl_forced_update_display();
         return;
     }
 
     if (argcp < 2) {
-        printf("\nERROR(%04x): (11,257): Missing argument: handle\n", conn_handle);
+        printf("\nCHAR-READ-HND(%04x): 1 Missing argument: handle\n", 
+               conn_handle);
         rl_forced_update_display();
         return;
     }
 
     handle = strtohandle(argvp[1]);
     if (handle < 0) {
-        printf("\nERROR(%04x): (11,258): Invalid handle: %s\n", conn_handle, argvp[1]);
+        printf("\nCHAR-READ-HND(%04x): 1 Invalid handle: %s\n", 
+               conn_handle, argvp[1]);
         rl_forced_update_display();
         return;
     }
@@ -575,7 +588,8 @@ static void cmd_read_hnd(int argcp, char **argvp)
         errno = 0;
         offset = strtol(argvp[2], &e, 0);
         if (errno != 0 || *e != '\0') {
-            printf("\nERROR(%04x): (11,259): Invalid offset: %s\n", conn_handle, argvp[2]);
+            printf("\nCHAR-READ-HND(%04x): %i Invalid offset: %s\n", 
+                   conn_handle, ATT_ECODE_INVALID_OFFSET, argvp[2]);
             rl_forced_update_display();
             return;
         }
@@ -592,19 +606,21 @@ static void cmd_read_uuid(int argcp, char **argvp)
     bt_uuid_t uuid;
 
     if (conn_state != STATE_CONNECTED) {
-        printf("\nERROR(0000): (12,256): Command failed: disconnected\n");
+        printf("\nCHAR-READ-UUID(0000): 256 Command failed: disconnected\n");
         rl_forced_update_display();
         return;
     }
 
     if (argcp < 2) {
-        printf("\nERROR(%04x): (12,257): Missing argument: UUID\n", conn_handle);
+        printf("\nCHAR-READ-UUID(%04x): 1 Missing argument: UUID\n", 
+               conn_handle);
         rl_forced_update_display();
         return;
     }
 
     if (bt_string_to_uuid(&uuid, argvp[1]) < 0) {
-        printf("\nERROR(%04x): (12,258): Invalid UUID\n", conn_handle);
+        printf("\nCHAR-READ-UUID(%04x): 1 Invalid UUID\n", 
+               conn_handle);
         rl_forced_update_display();
         return;
     }
@@ -612,7 +628,8 @@ static void cmd_read_uuid(int argcp, char **argvp)
     if (argcp > 2) {
         start = strtohandle(argvp[2]);
         if (start < 0) {
-            printf("\nERROR(%04x): (12,259): Invalid start handle: %s\n", conn_handle, argvp[1]);
+            printf("\nCHAR-READ-UUID(%04x): %i Invalid start handle: %s\n", 
+                   conn_handle, ATT_ECODE_INVALID_HANDLE, argvp[1]);
             rl_forced_update_display();
             return;
         }
@@ -620,8 +637,9 @@ static void cmd_read_uuid(int argcp, char **argvp)
 
     if (argcp > 3) {
         end = strtohandle(argvp[3]);
-        if (end < 0) {
-            printf("\nERROR(%04x): (12,260): Invalid end handle: %s\n", conn_handle, argvp[2]);
+        if (end < start) {
+            printf("\nCHAR-READ-UUID(%04x): %i Invalid end handle: %s\n", 
+                   conn_handle, ATT_ECODE_INVALID_HANDLE, argvp[2]);
             rl_forced_update_display();
             return;
         }
@@ -659,29 +677,49 @@ static void cmd_char_write(int argcp, char **argvp)
     uint8_t *value;
     size_t plen;
     int handle;
+    
+    if (argcp < 3) {
+        printf("\nCHAR-WRITE-(%04x): 257 Usage: %s <handle> <new value>\n", 
+               conn_handle, argvp[0]);
+        rl_forced_update_display();
+        return;
+    }
+
+    int mode = g_strcmp0("char-write-req", argvp[0]) == 0;
 
     if (conn_state != STATE_CONNECTED) {
-        printf("\nERROR(0000): (14,256): Command failed: disconnected\n");
+        if (mode > 0)
+            printf("\nCHAR-WRITE-REQ");
+        else
+            printf("\nCHAR-WRITE-CMD");
+        printf("(000): 256 Command failed: disconnected\n");
         rl_forced_update_display();
         return;
     }
 
-    if (argcp < 3) {
-        printf("\nERROR(%04x): (14,257): Usage: %s <handle> <new value>\n", conn_handle, argvp[0]);
-        rl_forced_update_display();
-        return;
-    }
 
     handle = strtohandle(argvp[1]);
     if (handle <= 0) {
-        printf("\nERROR(%04x): (14,258): A valid handle is required\n", conn_handle);
+        if (mode > 0)
+            printf("\nCHAR-WRITE-REQ");
+        else
+            printf("\nCHAR-WRITE-CMD");
+
+        printf("(%04x): %i A valid handle is required\n", conn_handle,
+               ATT_ECODE_INVALID_HANDLE);
         rl_forced_update_display();
         return;
     }
 
     plen = gatt_attr_data_from_string(argvp[2], &value);
     if (plen == 0) {
-        g_printerr("ERROR(%04x): (14,259): Invalid value\n", conn_handle);
+        if (mode > 0)
+            printf("\nCHAR-WRITE-REQ");
+        else
+            printf("\nCHAR-WRITE-CMD");
+
+        printf("(%04x): %i invalid value\n", conn_handle,
+               ATT_ECODE_INVALID_HANDLE);
         rl_forced_update_display();
         return;
     }
@@ -718,7 +756,8 @@ static void cmd_sec_level(int argcp, char **argvp)
     else if (strcasecmp(argvp[1], "low") == 0)
         sec_level = BT_IO_SEC_LOW;
     else {
-        printf("\nERROR(%04x): (14,258): Allowed values: low | medium | high\n", conn_handle);
+        printf("\nSEC-LEVEL(%04x): 257 Allowed values: low | medium | high\n", 
+               conn_handle);
         rl_forced_update_display();
         return;
     }
@@ -727,14 +766,14 @@ static void cmd_sec_level(int argcp, char **argvp)
     opt_sec_level = g_strdup(argvp[1]);
 
     if (!opt_psm && conn_state != STATE_CONNECTED){
-        printf("\nERROR(0000): (14, 260): It can only be done when connected"
+        printf("\nSEC-LEVEL(0000): 256 It can only be done when connected"
                " for LE connections\n");
         rl_forced_update_display();
         return;
     }
 
     if (opt_psm && conn_state != STATE_DISCONNECTED) {
-        printf("\nERROR(%04x): (14,259): It must be disconnected to this "
+        printf("\nSEC-LEVEL(%04x): 256 It must be disconnected to this "
                "change take effect\n", conn_handle);
         rl_forced_update_display();
     }
@@ -762,13 +801,15 @@ static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
     uint16_t mtu;
 
     if (status != 0) {
-        printf("\nMTU(%04x): %i %s\n", conn_handle, status, att_ecode2str(status));
+        printf("\nMTU(%04x): %i %s\n", conn_handle, status, 
+               att_ecode2str(status));
         rl_forced_update_display();
         return;
     }
 
     if (!dec_mtu_resp(pdu, plen, &mtu)) {
-        printf("\nERROR(%04x): (15,256): Protocol error\n", conn_handle);
+        printf("\nMTU(%04x): %i Protocol error\n", conn_handle,
+               ATT_ECODE_INVALID_PDU);
         rl_forced_update_display();
         return;
     }
@@ -785,27 +826,27 @@ static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
 static void cmd_mtu(int argcp, char **argvp)
 {
     if (conn_state != STATE_CONNECTED) {
-        printf("\nERROR(0000): (16,256): Command failed: not connected.\n");
+        printf("\nMTU(0000): 256 Command failed: not connected.\n");
         rl_forced_update_display();
         return;
     }
 
     if (opt_psm) {
-        printf("\nERROR(%04x): (14,258): Command failed: operation is only available"
+        printf("\nMTU(%04x): 256 Command failed: operation is only available"
                " for LE transport.\n", conn_handle);
         rl_forced_update_display();
         return;
     }
 
     if (argcp < 2) {
-        printf("\nERROR(%04x): (14,259): Usage: mtu <value>\n", conn_handle);
+        printf("\nMTU(%04x): 257 Usage: mtu <value>\n", conn_handle);
         rl_forced_update_display();
         return;
     }
 
     if (opt_mtu) {
-        printf("\nERROR(%04x): (14,260): Command failed: MTU exchange can only occur"
-               " once per connection.\n", conn_handle);
+        printf("\nMTU(%04x): %i Command failed: MTU exchange can only occur"
+               " once per connection.\n", conn_handle, ATT_ECODE_UNLIKELY);
         rl_forced_update_display();
         return;
     }
@@ -813,8 +854,8 @@ static void cmd_mtu(int argcp, char **argvp)
     errno = 0;
     opt_mtu = strtoll(argvp[1], NULL, 0);
     if (errno != 0 || opt_mtu < ATT_DEFAULT_LE_MTU) {
-        printf("\nERROR(%04x): (14,261): Invalid value. Minimum MTU size is %d\n",
-               conn_handle, ATT_DEFAULT_LE_MTU);
+        printf("\nMTU(%04x): %i Invalid value. Minimum MTU size is %d\n",
+               conn_handle, ATT_ECODE_UNLIKELY, ATT_DEFAULT_LE_MTU);
         rl_forced_update_display();
         return;
     }
@@ -825,13 +866,13 @@ static void cmd_mtu(int argcp, char **argvp)
 static void cmd_psm(int argcp, char **argvp)
 {
     if (conn_state == STATE_CONNECTED) {
-        printf("\nERROR(%04x): (17,256): Command failed: connected.\n", conn_handle);
+        printf("\nPSM(%04x): 256 Command failed: connected.\n", conn_handle);
         rl_forced_update_display();
         return;
     }
 
     if (argcp < 2) {
-        printf("\nERROR(0000): (17,259): Usage: psm <value>\n");
+        printf("\nPSM(0000): 257 Usage: psm <value>\n");
         rl_forced_update_display();
         return;
     }
