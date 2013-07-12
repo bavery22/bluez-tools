@@ -3,6 +3,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := hcitool-btle
+LOCAL_MODULE_TAGS := eng
 LOCAL_SRC_FILES := hcitool.c
 LOCAL_STATIC_LIBRARIES := bluetooth bluetoothd
 LOCAL_C_INCLUDES := \
