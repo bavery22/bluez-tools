@@ -3,6 +3,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := gatttool-btle
+LOCAL_MODULE_TAGS := eng
 LOCAL_SRC_FILES := gatttool.c \
 	gatt.c \
 	gattrib.c \
