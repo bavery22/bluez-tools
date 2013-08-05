@@ -8,7 +8,6 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:= \
     BT.cpp \
-    myobject.cpp \
     device.cpp \
     glibHandler.cpp \
     att.c \
