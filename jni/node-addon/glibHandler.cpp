@@ -243,6 +243,7 @@ static   void HandleQEvent(struct messageQ * &m)
     break;
   case DISCONNECT_BACK:
     //back events are handled by definition
+    fprintf(stderr,"DISCONNECT_BACK: currentstate = %d\n",GlibHandler::m_connectionState);
     handled=1;
     switch (GlibHandler::m_connectionState){
     case STATE_DISCONNECTED:
@@ -434,6 +435,7 @@ void GlibHandler::ChangeState(enum CONN_STATE newState,char *newAddr)
   // not all state changes change the address
   if (newAddr)
     strcpy(m_currentAddress,newAddr);
-    uv_mutex_unlock(&m_stateMutex);
+  fprintf(stderr,"NEW STATE IS NOW %d with addr = %s\n",m_connectionState,m_currentAddress);
+  uv_mutex_unlock(&m_stateMutex);
 
 }

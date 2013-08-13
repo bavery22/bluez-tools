@@ -19,6 +19,7 @@ class Device : public node::ObjectWrap {
   static v8::Handle<v8::Value> PlusOne(const v8::Arguments& args);
   static v8::Handle<v8::Value> CWR (const v8::Arguments& args);
   static v8::Handle<v8::Value> Connect (const v8::Arguments& args);
+  static v8::Handle<v8::Value> Disconnect (const v8::Arguments& args);
   static v8::Handle<v8::Value> CharWriteCommand (const v8::Arguments& args);
   double counter_;
   char m_address[20];

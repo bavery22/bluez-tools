@@ -114,6 +114,8 @@ void Device::Init(Handle<Object> target) {
       FunctionTemplate::New(CWR)->GetFunction());
   tpl->PrototypeTemplate()->Set(String::NewSymbol("Connect"),
       FunctionTemplate::New(Connect)->GetFunction());
+  tpl->PrototypeTemplate()->Set(String::NewSymbol("Disconnect"),
+      FunctionTemplate::New(Disconnect)->GetFunction());
   tpl->PrototypeTemplate()->Set(String::NewSymbol("CharWriteCommand"),
       FunctionTemplate::New(CharWriteCommand)->GetFunction());
 
@@ -190,6 +192,24 @@ Handle<Value> Device::Connect(const Arguments& args) {
 
   struct messageQ *m = malloc (sizeof(struct messageQ ));
   m->event=CONNECT_OUT;
+  strcpy(m->addr ,obj->m_address);
+  m_glibhandler->AddEventToGLIBQ(m);
+
+  return scope.Close(Undefined());
+  
+}
+//disconnect method
+Handle<Value> Device::Disconnect(const Arguments& args) {
+  HandleScope scope;
+  Device* obj = ObjectWrap::Unwrap<Device>(args.This());
+
+
+
+
+  fprintf(stderr,"device: DISCoonect to %s\n",obj->m_address);
+
+  struct messageQ *m = malloc (sizeof(struct messageQ ));
+  m->event=DISCONNECT_OUT;
   strcpy(m->addr ,obj->m_address);
   m_glibhandler->AddEventToGLIBQ(m);
 
