@@ -73,12 +73,27 @@ static void done_queue_work(uv_work_t *req, int status)
     {
 
       fprintf(stderr,"event = %d for addr %s\n",my_info->m->event,my_info->addr);
-  
-      const unsigned argc = 1;
-      //Local<Value> argv[argc] = { Local<Value>::New((int) my_info->m->event) };
-      Local<Value> argv[argc] = { Local<Value>::New(Integer::New((int) my_info->m->event)) };
-
-      my_info->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+      switch (my_info->m->event){
+      case CONNECT_BACK:
+      case DISCONNECT_BACK:
+	{
+	  const unsigned argc = 1;
+	  Local<Value> argv[argc] = { Local<Value>::New(Integer::New((int) my_info->m->event)) };
+	  my_info->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+	}
+	break;
+      case CHAR_READ_HND_BACK:
+	{
+	  const unsigned argc = 2;
+	  Local<Value> argv[2] = { Local<Value>::New(Integer::New((int) my_info->m->event)),
+				   Local<Value>::New(Uint32::New((unsigned long) my_info->m->uldata)) };
+	  my_info->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+	}
+	break;
+      default:
+	fprintf(stderr, "done_queue_work tried and failed to handle unknown event %d\n",my_info->m->event);
+	break;
+      }
     }
 
   free (my_info->m);
@@ -118,6 +133,8 @@ void Device::Init(Handle<Object> target) {
       FunctionTemplate::New(Disconnect)->GetFunction());
   tpl->PrototypeTemplate()->Set(String::NewSymbol("CharWriteCommand"),
       FunctionTemplate::New(CharWriteCommand)->GetFunction());
+  tpl->PrototypeTemplate()->Set(String::NewSymbol("CharReadHandle"),
+      FunctionTemplate::New(CharReadHandle)->GetFunction());
 
   Persistent<Function> constructor = Persistent<Function>::New(tpl->GetFunction());
   target->Set(String::NewSymbol("Device"), constructor);
@@ -248,6 +265,28 @@ Handle<Value> Device::CharWriteCommand(const Arguments& args) {
   m->handle=handle;
   m->value=value;
   m->plen=plen;
+  m_glibhandler->AddEventToGLIBQ(m);
+  
+
+
+  return scope.Close(Undefined());
+  
+}
+//char_read_handle method
+// essentially a register read.
+Handle<Value> Device::CharReadHandle(const Arguments& args) {
+  HandleScope scope;
+  Device* obj = ObjectWrap::Unwrap<Device>(args.This());
+  // get the param
+  int handle = args[0]->NumberValue();
+  int offset = args[1]->IsUndefined() ? 0 : args[1]->NumberValue();
+
+
+  struct messageQ *m = malloc (sizeof(struct messageQ ));
+  m->event=  CHAR_READ_HND_OUT;
+  strcpy(m->addr ,obj->m_address);
+  m->handle=handle;
+  m->offset=offset;
   m_glibhandler->AddEventToGLIBQ(m);
   
 

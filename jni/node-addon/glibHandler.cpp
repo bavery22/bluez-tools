@@ -125,6 +125,36 @@ static void events_handler(const uint8_t *pdu, uint16_t len, gpointer user_data)
         g_attrib_send(attrib, 0, opdu[0], opdu, olen, NULL, NULL, NULL);
 }
 
+static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
+                            gpointer user_data)
+{
+  uint8_t value[ATT_MAX_MTU];
+  ssize_t vlen;
+  int i;
+  fprintf(stderr,"bavery: char_read_cb status = %d\n",status);
+  if (status != 0) {
+    return;
+  }
+
+  vlen = dec_read_resp(pdu, plen, value, sizeof(value));
+  if (vlen < 0) {
+    fprintf(stderr,"bavery: char_read_cb bad vlen = %d\n",vlen);
+    return;
+  }
+
+
+  // add it ti our Q
+  struct messageQ *m = malloc (sizeof(struct messageQ ));
+  m->event=CHAR_READ_HND_BACK;
+  strcpy(m->addr ,GlibHandler::m_currentAddress);
+  m->uldata = 0x0;
+  for (i=0;i<vlen;i++){
+    m->uldata |= value[i]<<(8*i);
+  }
+  GlibHandler::AddEventToGLIBQ(m);
+
+
+}
 
 
 
@@ -277,11 +307,46 @@ static   void HandleQEvent(struct messageQ * &m)
       break;
     case STATE_CONNECTED:
       handled=1;
-      fprintf(stderr,"bavery calling attrib = %d gatt_write_char handle=%d value=%d plen=%d\n",attrib,m->handle, *(m->value), m->plen);
+      fprintf(stderr,"bavery calling gatt_write_char attrib = %d  handle=%d value=%d plen=%d\n",attrib,m->handle, *(m->value), m->plen);
       gatt_write_char(attrib, m->handle, m->value, m->plen, NULL, NULL);
       break;
     }
     break;
+  case CHAR_READ_HND_OUT:
+    switch (GlibHandler::m_connectionState){
+      fprintf(stderr,"bavery-> CHAR_READ_CMD_OUT state = %d\n",GlibHandler::m_connectionState);
+    case STATE_DISCONNECTED:
+      // we got disconnected. reconnect and then run the command
+      	{
+	  struct messageQ *m2 = malloc (sizeof(struct messageQ ));
+	  m2->event=CONNECT_OUT;
+	  strcpy(m2->addr ,m->addr);
+	  GlibHandler::AddEventToGLIBQ(m2);
+	}
+      break;
+    case STATE_CONNECTING:
+      // still connecting. not handled. nothing to do but wait.
+      break;
+    case STATE_CONNECTED:
+      handled=1;
+      fprintf(stderr,"bavery calling gatt_read_char attrib = %d  handle=%d offset=%d \n",attrib,m->handle, m->offset);
+      gatt_read_char(attrib, m->handle, m->offset, char_read_cb, attrib);
+      break;
+    }
+    break;
+
+  case CHAR_READ_HND_BACK:
+    //back events are handled by definition
+    handled=1;
+    {
+      struct messageQ *m2 = malloc (sizeof(struct messageQ ));
+      m2->event=CHAR_READ_HND_BACK;
+      strcpy(m2->addr ,m->addr);
+      m2->uldata = m->uldata;
+      GlibHandler::AddEventToJSQ(m2);
+    }
+    break;
+
 
   default:
     fprintf(stderr,"unknown event in HandleQEvent: %d\n",m->event);
