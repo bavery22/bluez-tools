@@ -29,207 +29,68 @@ extern "C" {
 }
 
 
+// Static class initializers
+static GlibHandler* Device::m_glibhandler;
+
+
 using namespace v8;
 
 // a list of devices that we will add to as we find them
 struct info{
-  char buf1[256];
-  char buf2[256];
-  int handle;
-  uint8_t value;
-  size_t plen;
+  char addr[20];
+  struct messageQ *m;
   v8::Persistent<v8::Function> callback;
-
 };
 
-
-static uv_mutex_t conn_mutex;
-static GMainLoop *event_loop;
-static uint16_t conn_handle = 0;
-static GAttrib *attrib = NULL;
-static GIOChannel *iochannel = NULL;
-
-
-static int strtohandle(const char *src)
+static void do_queue_work(uv_work_t *req)
 {
-    char *e;
-    int dst;
-
-    //errno = 0;
-    dst = strtoll(src, &e, 16);
-    //if (errno != 0 || *e != '\0')
-    //    return -EINVAL;
-
-    return dst;
-}
-
-
-static void events_handler(const uint8_t *pdu, uint16_t len, gpointer user_data)
-{
-    uint8_t *opdu;
-    uint16_t handle, i, olen;
-    size_t plen;
-
-    handle = att_get_u16(&pdu[1]);
-
-    printf("\n");
-    switch (pdu[0]) {
-    case ATT_OP_HANDLE_NOTIFY:
-        printf("NOTIFICATION(%04x): %04x ", conn_handle , handle);
-        break;
-    case ATT_OP_HANDLE_IND:
-        printf("INDICATION(%04x): %04x ", conn_handle, handle);
-        break;
-    default:
-        printf("ERROR(%04x): (16,256) Invalid opcode\n", conn_handle);
-        return;
-    }
-
-    for (i = 3; i < len; i++)
-        printf("%02x ", pdu[i]);
-
-
-    if (pdu[0] == ATT_OP_HANDLE_NOTIFY)
-        return;
-
-    opdu = g_attrib_get_buffer(attrib, &plen);
-    olen = enc_confirmation(opdu, plen);
-
-    if (olen > 0)
-        g_attrib_send(attrib, 0, opdu[0], opdu, olen, NULL, NULL, NULL);
-}
-
-
-
-static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
-{
-  fprintf(stderr,"bavery: connect_cb\n");
-
-    attrib = g_attrib_new(iochannel);
-    g_attrib_register(attrib, ATT_OP_HANDLE_NOTIFY, events_handler,
-                            attrib, NULL);
-    g_attrib_register(attrib, ATT_OP_HANDLE_IND, events_handler,
-                            attrib, NULL);
-    
-    GError *gerr = NULL;
-
-    // get connection handle
-    bt_io_get(iochannel, &gerr, BT_IO_OPT_HANDLE, &conn_handle,
-              BT_IO_OPT_INVALID);
-
-    fprintf(stderr,"\nCONNECTED(%04x):  0\n", conn_handle);
-
-
-  g_main_loop_quit(event_loop);
-  uv_mutex_unlock(&conn_mutex);
-  
-}
-
-
-
-static void do_char_write_work(uv_work_t *req)
-{
-  struct info *i = (struct info *) req->data;
-
-  fprintf(stderr,"do_char_write_work\n");
-  fprintf(stderr,"do_char_write_work : handle->0x%x  value->0x%x plen=%d\n",i->handle,i->value,i->plen);
-  //event_loop = g_main_loop_new(NULL, FALSE);
-
-  gatt_write_char(attrib, i->handle, &(i->value), i->plen, NULL, NULL);
-
-  //g_main_loop_run(event_loop);
-  //g_main_loop_unref(event_loop);
-
-  
-  fprintf(stderr,"do_char_write_work exiting\n");
-
-
-}
-static void done_char_write_work(uv_work_t *req, int status)
-{
-  fprintf(stderr,"done_char_write_work   status = %d\n");
-#if 0
-  struct devices *d = (struct devices *) req->data;
-  const unsigned argc = 1;
-  Local<Value> argv[argc] = { Local<Value>::New(String::New("DONE DID  WORK")) };
-  d->callback->Call(Context::GetCurrent()->Global(), argc, argv);
-  for (int i=0;i<d->numEntries;i++)
-    {
-      Local<Value> argv[argc] = { Local<Value>::New(String::New(d->gEntries[i])) };
-      d->callback->Call(Context::GetCurrent()->Global(), argc, argv);
-      free(d->gEntries[i]);
-    }
-#endif
-}
-
-
-
-static void do_connect_work(uv_work_t *req)
-{
-  struct info *i = (struct info *) req->data;
-
-  fprintf(stderr,"do_connect_work\n");
-  uv_mutex_init(&conn_mutex);
-  uv_mutex_lock(&conn_mutex);
-  
-  //event_loop = g_main_loop_new(NULL, FALSE);
-
-
-  fprintf(stderr,"bavery calling gatt_connect to addr: %s\n",i->buf1);
-  iochannel =  gatt_connect("hci0", i->buf1, "public", "low",
-	       NULL, NULL, connect_cb);
-
-  if (iochannel == NULL)
-    fprintf(stderr,"got a null iochannel from gatt_connect\n");
-
-  //g_main_loop_run(event_loop);
-  // this will wait until the conn_cb unlocks it. then we can exit and return.
-  uv_mutex_lock(&conn_mutex);
-
-  //g_main_loop_unref(event_loop);
-  fprintf(stderr,"do_connect_work exiting\n");
-
-
-}
-static void done_connect_work(uv_work_t *req, int status)
-{
-  fprintf(stderr,"done_connect_work   status = %d\n");
-#if 0
-  struct devices *d = (struct devices *) req->data;
-  const unsigned argc = 1;
-  Local<Value> argv[argc] = { Local<Value>::New(String::New("DONE DID  WORK")) };
-  d->callback->Call(Context::GetCurrent()->Global(), argc, argv);
-  for (int i=0;i<d->numEntries;i++)
-    {
-      Local<Value> argv[argc] = { Local<Value>::New(String::New(d->gEntries[i])) };
-      d->callback->Call(Context::GetCurrent()->Global(), argc, argv);
-      free(d->gEntries[i]);
-    }
-#endif
-}
-
-
-static void do_gloop_work(uv_work_t *req)
-{
-
-  fprintf(stderr,"do_gloop_work\n");
-
-  
-  event_loop = g_main_loop_new(NULL, FALSE);
-
+  struct info  *my_info= req->data;
+  fprintf(stderr,"do_queue_work\n");
   while (1){
-    g_main_loop_run(event_loop);
-  fprintf(stderr,"do_gloop_work musta gotten a quit somewhere \n");
+    // here should check our eventQ to see if we need to do something (like send out a connect)
+    struct messageQ *m=    GlibHandler::RemoveEventFromJSQ(my_info->addr);
+    if (m){
+      fprintf(stderr,"found an event for address:%s going to done next\n",my_info->addr);
+      my_info->m = m;
+      return;
+    }
+    // thread yield would be better here but not in uv by default. may add l8r
+    usleep(500);
   }
+}
+
+
+static void done_queue_work(uv_work_t *req, int status)
+{
+  struct info  *my_info= req->data;
   
 
 
-}
-static void done_gloop_work(uv_work_t *req, int status)
-{
-  fprintf(stderr,"done_gloop_work   status = %d   AAAARRRRGH\n");
+  if (! my_info->m){
+    fprintf(stderr,"no event for addr %s!!!!!\n",my_info->addr);
+  }
+  else
+    {
+
+      fprintf(stderr,"event = %d for addr %s\n",my_info->m->event,my_info->addr);
+  
+      const unsigned argc = 1;
+      //Local<Value> argv[argc] = { Local<Value>::New((int) my_info->m->event) };
+      Local<Value> argv[argc] = { Local<Value>::New(Integer::New((int) my_info->m->event)) };
+
+      my_info->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+    }
+
+  free (my_info->m);
+  my_info->m = NULL;
+  // and go look for the next event
+  uv_queue_work(uv_default_loop(),req,do_queue_work,done_queue_work);
 
 }
+
+
+
+
 
 
 
@@ -260,25 +121,34 @@ void Device::Init(Handle<Object> target) {
   target->Set(String::NewSymbol("Device"), constructor);
 
 }
-
+// Make one by calling new Device("11:22:33:44:55:66",js_callback);
 Handle<Value> Device::New(const Arguments& args) {
   HandleScope scope;
-
+  uv_work_t *req = new uv_work_t;
+  struct info *my_info = new struct info;
+  
+  fprintf(stderr,"New device being made...\n");
   Device* obj = new Device();
   //obj->counter_ = args[0]->IsUndefined() ? 0 : args[0]->NumberValue();
   obj->counter_ =0;
   //Local<Function> cb = Local<Function>::Cast(args[0]);
-  obj->m_cb = v8::Persistent<v8::Function>::New(args[0]);
-  obj->m_state = STATE_DISCONNECTED;
-  /*
-const unsigned argc = 1;
-  Local<Value> argv[argc] = { Local<Value>::New(String::New("hello world")) };
-  obj->CB->Call(Context::GetCurrent()->Global(), argc, argv);
-  */
-  uv_work_t *req = new uv_work_t;
-  uv_queue_work(uv_default_loop(),req,do_gloop_work,done_gloop_work);
+
+  // get the param
+  v8::String::Utf8Value param1(args[0]->ToString());
+  std::string text1 = std::string(*param1);
+  const char * addr = text1.c_str();
+  obj->m_cb = v8::Persistent<v8::Function>::New(args[1]);
+  strcpy(obj->m_address,addr);
 
 
+  strcpy(my_info->addr,obj->m_address);
+  my_info->m = NULL;
+  my_info->callback = obj->m_cb;
+  req->data = my_info;
+  
+  uv_queue_work(uv_default_loop(),req,do_queue_work,done_queue_work);
+
+  
   obj->Wrap(args.This());
 
   return args.This();
@@ -312,28 +182,16 @@ Handle<Value> Device::CWR(const Arguments& args) {
 Handle<Value> Device::Connect(const Arguments& args) {
   HandleScope scope;
   Device* obj = ObjectWrap::Unwrap<Device>(args.This());
-  // get the param
-  v8::String::Utf8Value param1(args[0]->ToString());
-  std::string text1 = std::string(*param1);
-  const char * addr = text1.c_str();
-  uv_work_t *req = new uv_work_t;
-  struct info *my_info = new struct info;
-
-  strcpy(my_info->buf1,addr);
-  req->data = my_info;
-
-  fprintf(stderr,"Coonect to %s\n",addr);
-  uv_queue_work(uv_default_loop(),req,do_connect_work,done_connect_work);
 
 
-#if 0
-  obj->m_state = STATE_CONNECTING;
-  iochannel =  gatt_connect("hci0", addr, "public", "low",
-	       NULL, NULL, connect_cb);
 
-  if (iochannel == NULL)
-    fprintf(stderr,"got a null iochannel from gatt_connect\n");
-#endif
+
+  fprintf(stderr,"device: Coonect to %s\n",obj->m_address);
+
+  struct messageQ *m = malloc (sizeof(struct messageQ ));
+  m->event=CONNECT_OUT;
+  strcpy(m->addr ,obj->m_address);
+  m_glibhandler->AddEventToGLIBQ(m);
 
   return scope.Close(Undefined());
   
@@ -346,34 +204,32 @@ Handle<Value> Device::CharWriteCommand(const Arguments& args) {
   HandleScope scope;
   Device* obj = ObjectWrap::Unwrap<Device>(args.This());
   // get the param
-  v8::String::Utf8Value param1(args[0]->ToString());
-  std::string text1 = std::string(*param1);
-  const char * handleString = text1.c_str();
-  // get the value
-  v8::String::Utf8Value param2(args[1]->ToString());
-  std::string text2 = std::string(*param2);
-  const char * valueString = text2.c_str();
+  int handle = args[0]->NumberValue();
+  uint8_t myValue = args[1]->NumberValue();
+  char valueString[128];
+
   uint8_t *value;
+  
+  // work around for bluez issue. they expect a hex number in 
+  // string form without any preceding 0x.  eg 20 not 0x20 
+  sprintf(valueString,"%02x",myValue);
+  size_t plen=gatt_attr_data_from_string(valueString, &value);
+  fprintf(stderr,"valuestring = %s value = %d non gatt value = %d\n",valueString,*value,myValue); 
+  
+  if (plen == 0)
+    {
+      fprintf(stderr,"bad plen device:%s\n", obj->m_address);
+      return scope.Close(Undefined());
+    }
 
-  uv_work_t *req = new uv_work_t;
-  struct info *my_info = new struct info;
-
-
-  //my_info->handle = strtohandle(handleString);
-  //my_info->handle = strtohandle("0x0039");
-  my_info->handle = 0x0039;
-  //my_info->plen=gatt_attr_data_from_string(valueString, &value);
-  //my_info->plen=gatt_attr_data_from_string("20", &value);
-  my_info->plen=1;
-  // noop here but needed for the char_write_req version l8r
-  //my_info->value = *value;
-  my_info->value = 0x20;
-  req->data = my_info;
-
-  fprintf(stderr,"CharWriteCommand handle= %s/0x%x value=%s/%0x%x\n",handleString,my_info->handle,valueString,my_info->value);
-
-  uv_queue_work(uv_default_loop(),req,do_char_write_work,done_char_write_work);
-
+  struct messageQ *m = malloc (sizeof(struct messageQ ));
+  m->event=  CHAR_WRITE_CMD_OUT;
+  strcpy(m->addr ,obj->m_address);
+  m->handle=handle;
+  m->value=value;
+  m->plen=plen;
+  m_glibhandler->AddEventToGLIBQ(m);
+  
 
 
   return scope.Close(Undefined());

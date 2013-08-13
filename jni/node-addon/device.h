@@ -6,11 +6,6 @@
 #include "glibHandler.h"
 
 
-enum state {
-    STATE_DISCONNECTED,
-    STATE_CONNECTING,
-    STATE_CONNECTED
-};
 
 class Device : public node::ObjectWrap {
  public:
@@ -26,13 +21,16 @@ class Device : public node::ObjectWrap {
   static v8::Handle<v8::Value> Connect (const v8::Arguments& args);
   static v8::Handle<v8::Value> CharWriteCommand (const v8::Arguments& args);
   double counter_;
-  state  m_state;
+  char m_address[20];
   v8::Persistent<v8::Function> m_cb;
+
 
 
   // singleton glibhandler
   static GlibHandler* m_glibhandler;
 
 };
+
+
 
 #endif
