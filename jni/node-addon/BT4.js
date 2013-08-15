@@ -63,6 +63,14 @@ var EVENTS = defineEnum({
         value : 3,
         string : 'DISCONNECT_BACK'
     },
+    HANDLE_NOTIFY_BACK : {
+        value : 4,
+        string : 'HANDLE_NOTIFY_BACK'
+    },
+    HANDLE_INDICATOR_BACK : {
+        value : 5,
+        string : 'HANDLE_INDICATOR_BACK'
+    },
     CHAR_READ_HND_BACK : {
         value : 10,
         string : 'CHAR_READ_HND_BACK'
@@ -97,11 +105,38 @@ function device_cb(e)
 	    console.log("\tdata["+i+"] = 0x"+e.handle_data[i].toString(16));
 	    buffer[i] = e.handle_data[i]
 	}
-	if (e.handle_data.length > 3){
+	if (e.handle_data.length > 4){
 	    console.log("string interp = "+buffer.toString("utf-8"));
 	}
 	
 	break;
+    case EVENTS.HANDLE_NOTIFY_BACK.value:
+	console.log("DEVICE JS event name = "+EVENTS.HANDLE_NOTIFY_BACK.string);
+	console.log("\thandle = 0x"+e.handle.toString(16));
+	var buffer = new Buffer(e.handle_data.length+1)
+	for (var i = 0; i < e.handle_data.length; i++) {
+	    console.log("\tdata["+i+"] = 0x"+e.handle_data[i].toString(16));
+	    buffer[i] = e.handle_data[i]
+	}
+	if (e.handle_data.length > 4){
+	    console.log("string interp = "+buffer.toString("utf-8"));
+	}
+	
+	break;
+    case EVENTS.HANDLE_INDICATOR_BACK.value:
+	console.log("DEVICE JS event name = "+EVENTS.HANDLE_INDICATOR_BACK.string);
+	console.log("\thandle = 0x"+e.handle.toString(16));
+	var buffer = new Buffer(e.handle_data.length+1)
+	for (var i = 0; i < e.handle_data.length; i++) {
+	    console.log("\tdata["+i+"] = 0x"+e.handle_data[i].toString(16));
+	    buffer[i] = e.handle_data[i]
+	}
+	if (e.handle_data.length > 4){
+	    console.log("string interp = "+buffer.toString("utf-8"));
+	}
+	
+	break;
+
     default:
 	console.log("Unknown Event:"+e.event);
 	break;

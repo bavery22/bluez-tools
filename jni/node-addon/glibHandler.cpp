@@ -92,37 +92,48 @@ static gboolean channel_watcher(GIOChannel *chan, GIOCondition cond,
 
 static void events_handler(const uint8_t *pdu, uint16_t len, gpointer user_data)
 {
-    uint8_t *opdu;
-    uint16_t handle, i, olen;
-    size_t plen;
+  uint8_t *opdu;
+  uint16_t handle, i, olen;
+  size_t plen;
+  
+  handle = att_get_u16(&pdu[1]);
+  // add it ti our Q
+  struct messageQ *m = malloc (sizeof(struct messageQ ));
+  strcpy(m->addr ,GlibHandler::m_currentAddress);
+  m->handle = handle;
+  
+  printf("bavery: events_handler handle=0x%x pdu[0]=0x%x  pdu[2] = 0x%x userdata = 0x%x \n",handle,pdu[0],pdu[2],user_data);
+  
+  
+  switch (pdu[0]) {
+  case ATT_OP_HANDLE_NOTIFY:
+    m->event=HANDLE_NOTIFY_BACK;
+    break;
+  case ATT_OP_HANDLE_IND:
+    m->event=HANDLE_INDICATOR_BACK;
+    break;
+  default:
+    printf("ERROR(%04x): (16,256) Invalid opcode=%d\n", conn_handle,pdu[0]);
+    free(m);
+    return;
+  }
 
-    handle = att_get_u16(&pdu[1]);
 
-    printf("\n");
-    switch (pdu[0]) {
-    case ATT_OP_HANDLE_NOTIFY:
-        printf("NOTIFICATION(%04x): %04x ", conn_handle , handle);
-        break;
-    case ATT_OP_HANDLE_IND:
-        printf("INDICATION(%04x): %04x ", conn_handle, handle);
-        break;
-    default:
-        printf("ERROR(%04x): (16,256) Invalid opcode\n", conn_handle);
-        return;
-    }
-
-    for (i = 3; i < len; i++)
-        printf("%02x ", pdu[i]);
+  m->handle_data_len=len-3;
+  for (i=3;i<len;i++){
+    m->handle_data[i-3]=pdu[i];
+  }
+  GlibHandler::AddEventToGLIBQ(m);
 
 
-    if (pdu[0] == ATT_OP_HANDLE_NOTIFY)
-        return;
+  if (pdu[0] == ATT_OP_HANDLE_NOTIFY)
+    return;
 
-    opdu = g_attrib_get_buffer(attrib, &plen);
-    olen = enc_confirmation(opdu, plen);
+  opdu = g_attrib_get_buffer(attrib, &plen);
+  olen = enc_confirmation(opdu, plen);
 
-    if (olen > 0)
-        g_attrib_send(attrib, 0, opdu[0], opdu, olen, NULL, NULL, NULL);
+  if (olen > 0)
+    g_attrib_send(attrib, 0, opdu[0], opdu, olen, NULL, NULL, NULL);
 }
 
 static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
@@ -319,7 +330,10 @@ static   void HandleQEvent(struct messageQ * &m)
       break;
     case STATE_CONNECTED:
       handled=1;
-      printf("bavery calling gatt_write_char attrib = %d  handle=%d value=%d plen=%d\n",attrib,m->handle, *(m->value), m->plen);
+      printf("bavery calling gatt_write_char attrib = 0x%x  handle=0x%x plen=%d\n",attrib,m->handle, m->plen);
+      for (int i=0;i<m->plen;i++){
+	printf("bavery calling gatt_write_char value[%d] = 0x%x\n",i,m->value[i]);
+      }
       gatt_write_char(attrib, m->handle, m->value, m->plen, NULL, NULL);
       break;
     }
@@ -356,6 +370,23 @@ static   void HandleQEvent(struct messageQ * &m)
     {
       struct messageQ *m2 = malloc (sizeof(struct messageQ ));
       m2->event=CHAR_READ_HND_BACK;
+      strcpy(m2->addr ,m->addr);
+      for (int i=0;i < m->handle_data_len;i++)
+	m2->handle_data[i]=m->handle_data[i];
+      m2->handle_data_len=m->handle_data_len;
+      m2->handle=m->handle;
+      GlibHandler::AddEventToJSQ(m2);
+    }
+    break;
+
+  case HANDLE_NOTIFY_BACK:
+  case HANDLE_INDICATOR_BACK:
+    //back events are handled by definition
+    printf("glib HANDLE_NOTIFY_BACK or HANDLE_INDICATOR_BACK handle = 0x%x\n",m->handle);
+    handled=1;
+    {
+      struct messageQ *m2 = malloc (sizeof(struct messageQ ));
+      m2->event=m->event;
       strcpy(m2->addr ,m->addr);
       for (int i=0;i < m->handle_data_len;i++)
 	m2->handle_data[i]=m->handle_data[i];

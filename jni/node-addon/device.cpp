@@ -86,6 +86,8 @@ static void done_queue_work(uv_work_t *req, int status)
 	}
 	break;
       case CHAR_READ_HND_BACK:
+      case HANDLE_INDICATOR_BACK:
+      case HANDLE_NOTIFY_BACK:
 	{
 	  const unsigned argc = 1;
 	  Local<Object> event = Object::New();
@@ -257,17 +259,37 @@ Handle<Value> Device::CharWriteCommand(const Arguments& args) {
   Device* obj = ObjectWrap::Unwrap<Device>(args.This());
   // get the param
   int handle = args[0]->NumberValue();
-  uint8_t myValue = args[1]->NumberValue();
-  char valueString[128];
+  //unsigned long  myValue = args[1]->NumberValue();
+  
+  // get the param
+  v8::String::Utf8Value param1(args[1]->ToString());
+  std::string text1 = std::string(*param1);
+  size_t s = text1.find("0x");
+  // we need to massage it.
+  // basically they were working around not wanting to have to specify a length for char_write.
+  // unfortunately some registers take bytes, some words, some more...
+  // so a byte looks like 20 and a word looks like 0120 (not 0x120)
+  // because then you cant tell it to write 0020
+  if (s!= std::string::npos)
+    text1.erase(s,2);
+  s = text1.find("0X");
+  if (s!= std::string::npos)
+    text1.erase(s,2);
+  if (text1.length()%2)
+    text1.insert("0",0);
+  const char * valueString = text1.c_str();
+
+  //char valueString[128] = args[1]->NumberValue();;
 
   uint8_t *value;
   
-  // work around for bluez issue. they expect a hex number in 
+  // workaround for bluez issue. they expect a hex number in 
   // string form without any preceding 0x.  eg 20 not 0x20 
-  sprintf(valueString,"%02x",myValue);
+  //sprintf(valueString,"%02x",myValue);
   size_t plen=gatt_attr_data_from_string(valueString, &value);
-  fprintf(stderr,"valuestring = %s value = %d non gatt value = %d\n",valueString,*value,myValue); 
-  
+  fprintf(stderr,"valuestring = %s args1 = %s\n",valueString,args[1]->ToString()); 
+  for (int i =0; i < plen; i++)
+    printf("value[%d] = 0x%x\n",i,value[i]);
   if (plen == 0)
     {
       fprintf(stderr,"bad plen device:%s\n", obj->m_address);
