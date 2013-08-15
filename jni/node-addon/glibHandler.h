@@ -29,11 +29,15 @@ enum CONN_STATE{
 struct messageQ {
   EVENT_TYPE event;
   char addr[20];
+  int retval;
   int handle;
   int offset;
   // we are making this a pointer. it may be a memory leak but i think they are freeing it somewhere inside gatt.c
   uint8_t *value;
-  unsigned long uldata;
+  //unsigned long uldata;
+  // ideally this would be dynamic...
+  unsigned char handle_data[64];
+  unsigned char handle_data_len;
   size_t plen;
 
 };

@@ -30,7 +30,7 @@ extern "C" {
 
 
 // Static class initializers
-static GlibHandler* Device::m_glibhandler;
+GlibHandler* Device::m_glibhandler;
 
 
 using namespace v8;
@@ -78,15 +78,30 @@ static void done_queue_work(uv_work_t *req, int status)
       case DISCONNECT_BACK:
 	{
 	  const unsigned argc = 1;
-	  Local<Value> argv[argc] = { Local<Value>::New(Integer::New((int) my_info->m->event)) };
+	  Local<Object> event = Object::New();
+	  Handle<Value> argv[] = {event};
+	  event->Set(String::NewSymbol("event"), Number::New(my_info->m->event));
+	  event->Set(String::NewSymbol("retval"), Number::New(my_info->m->retval));
 	  my_info->callback->Call(Context::GetCurrent()->Global(), argc, argv);
 	}
 	break;
       case CHAR_READ_HND_BACK:
 	{
-	  const unsigned argc = 2;
-	  Local<Value> argv[2] = { Local<Value>::New(Integer::New((int) my_info->m->event)),
-				   Local<Value>::New(Uint32::New((unsigned long) my_info->m->uldata)) };
+	  const unsigned argc = 1;
+	  Local<Object> event = Object::New();
+	  Handle<Value> argv[] = {event};
+	  event->Set(String::NewSymbol("event"), Number::New(my_info->m->event));
+	  event->Set(String::NewSymbol("retval"), Number::New(my_info->m->retval));
+	  event->Set(String::NewSymbol("handle"), Number::New(my_info->m->handle));
+	  Handle<Array> a = Array::New(my_info->m->handle_data_len);	  
+
+	  a->Set(0, Integer::New(1));
+	  a->Set(1, Integer::New(2));
+
+	  for (int i=0;i<my_info->m->handle_data_len;i++)
+	    a->Set(i, Integer::New(my_info->m->handle_data[i]));
+	  //event->Set(String::NewSymbol("handle_data"), Array::New(my_info->m->handle_data_len));
+	  event->Set(String::NewSymbol("handle_data"), a);
 	  my_info->callback->Call(Context::GetCurrent()->Global(), argc, argv);
 	}
 	break;

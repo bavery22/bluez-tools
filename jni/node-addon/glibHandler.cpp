@@ -69,7 +69,7 @@ static void disconnect_io()
   g_io_channel_unref(iochannel);
   iochannel = NULL;
 
-  fprintf(stderr,"\ndisconnect_io conn_handle = %d\n",conn_handle);
+  printf("\ndisconnect_io conn_handle = %d\n",conn_handle);
   
   struct messageQ *m2 = malloc (sizeof(struct messageQ ));
   m2->event=DISCONNECT_BACK;
@@ -82,7 +82,7 @@ static void disconnect_io()
 static gboolean channel_watcher(GIOChannel *chan, GIOCondition cond,
                 gpointer user_data)
 {
-  fprintf(stderr,"\nDISCONNECTED(%04x)\n", conn_handle);
+
   disconnect_io();
   
   return FALSE;
@@ -131,14 +131,19 @@ static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
   uint8_t value[ATT_MAX_MTU];
   ssize_t vlen;
   int i;
-  fprintf(stderr,"bavery: char_read_cb status = %d\n",status);
+
+
+  printf("bavery: char_read_cb status = %d\n",status);
+  printf("bavery: char_read_cb attrib=0x%x\n",user_data);
+  
+  
   if (status != 0) {
     return;
   }
 
   vlen = dec_read_resp(pdu, plen, value, sizeof(value));
   if (vlen < 0) {
-    fprintf(stderr,"bavery: char_read_cb bad vlen = %d\n",vlen);
+    printf("bavery: char_read_cb bad vlen = %d\n",vlen);
     return;
   }
 
@@ -147,9 +152,11 @@ static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
   struct messageQ *m = malloc (sizeof(struct messageQ ));
   m->event=CHAR_READ_HND_BACK;
   strcpy(m->addr ,GlibHandler::m_currentAddress);
-  m->uldata = 0x0;
+  //m->uldata = 0x0;
+  m->handle = user_data;
+  m->handle_data_len=vlen;
   for (i=0;i<vlen;i++){
-    m->uldata |= value[i]<<(8*i);
+    m->handle_data[i]=value[i];
   }
   GlibHandler::AddEventToGLIBQ(m);
 
@@ -160,7 +167,7 @@ static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 
 static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
 {
-  fprintf(stderr,"bavery: connect_cb err=%d\n",err);
+  printf("bavery: connect_cb err=%d\n",err);
   
   if (err){
     struct messageQ *m2 = malloc (sizeof(struct messageQ ));
@@ -182,7 +189,7 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
   bt_io_get(iochannel, &gerr, BT_IO_OPT_HANDLE, &conn_handle,
 	    BT_IO_OPT_INVALID);
   
-  fprintf(stderr,"\nCONNECTED(%04x):  0\n", conn_handle);
+
   
 
   // after we put the addr in the userdata, add the in connect to the Q
@@ -195,7 +202,7 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data)
 
 static   void HandleQEvent(struct messageQ * &m)
 {
-  fprintf(stderr,"HandleQEvent: current state = %d, current conn_addr = %s working on event %d  addr=%s\n",GlibHandler::m_connectionState,GlibHandler::m_currentAddress,
+  printf("HandleQEvent: current state = %d, current conn_addr = %s working on event %d  addr=%s\n",GlibHandler::m_connectionState,GlibHandler::m_currentAddress,
 	  m->event,m->addr);
   // if the event cant be handled right now we push it to the back of the Q
   int handled = 0;
@@ -204,29 +211,34 @@ static   void HandleQEvent(struct messageQ * &m)
     switch (GlibHandler::m_connectionState){
     case STATE_DISCONNECTED:
       handled=1;
-      fprintf(stderr,"bavery calling gatt_connect to addr: %s\n",m->addr);
+      printf("bavery calling gatt_connect to addr: %s\n",m->addr);
       
       GlibHandler::ChangeState(STATE_CONNECTING,m->addr);
       iochannel =  gatt_connect("hci0", m->addr, "public", "low",
 				NULL, NULL, connect_cb);
 
       if (iochannel == NULL)
-        GlibHandler::ChangeState(STATE_DISCONNECTED,"");
+	{
+	  struct messageQ *m2 = malloc (sizeof(struct messageQ ));
+	  m2->event=DISCONNECT_OUT;
+	  strcpy(m2->addr ,GlibHandler::m_currentAddress);
+	  GlibHandler::AddEventToGLIBQ(m2);
+	}        
       else
         g_io_add_watch(iochannel, G_IO_HUP, channel_watcher, NULL);
 
       break;
     case STATE_CONNECTING:
-      fprintf(stderr,"Currently connecting, hold your horses\n");
+      printf("Currently connecting, hold your horses\n");
       break;
     case STATE_CONNECTED:
       if (! strcasecmp(m->addr,GlibHandler::m_currentAddress))
 	{
-	  fprintf(stderr,"already connected to that addr\n");
+	  printf("already connected to that addr\n");
 	  handled=1;
 	}
       else{
-	fprintf(stderr,"already connected to %s, need to disconnect first\n",GlibHandler::m_currentAddress);
+	printf("already connected to %s, need to disconnect first\n",GlibHandler::m_currentAddress);
 	// we want to connect to someone else so force the disconnect first.
 	{
 	  struct messageQ *m2 = malloc (sizeof(struct messageQ ));
@@ -244,7 +256,7 @@ static   void HandleQEvent(struct messageQ * &m)
     handled=1;
     switch (GlibHandler::m_connectionState){
     case STATE_DISCONNECTED:
-      fprintf(stderr,"ERROR in DISCONNECTED BUT GOT A CONNECT)_BACH for addr %s\n",m->addr);
+      printf("ERROR in DISCONNECTED BUT GOT A CONNECT)_BACH for addr %s\n",m->addr);
       break;
     case STATE_CONNECTING:
       GlibHandler::ChangeState(STATE_CONNECTED,m->addr);
@@ -256,7 +268,7 @@ static   void HandleQEvent(struct messageQ * &m)
       }
       break;
     case STATE_CONNECTED:
-      fprintf(stderr,"ERROR got a connect back while already connected addr=%s currentAddr=%s\n",m->addr,GlibHandler::m_currentAddress);
+      printf("ERROR got a connect back while already connected addr=%s currentAddr=%s\n",m->addr,GlibHandler::m_currentAddress);
       break;
     }
     break;
@@ -273,11 +285,11 @@ static   void HandleQEvent(struct messageQ * &m)
     break;
   case DISCONNECT_BACK:
     //back events are handled by definition
-    fprintf(stderr,"DISCONNECT_BACK: currentstate = %d\n",GlibHandler::m_connectionState);
+    printf("DISCONNECT_BACK: currentstate = %d\n",GlibHandler::m_connectionState);
     handled=1;
     switch (GlibHandler::m_connectionState){
     case STATE_DISCONNECTED:
-      fprintf(stderr,"already disconnected but got another disconnect from  addr: %s  ERROR \n",m->addr);
+      printf("already disconnected but got another disconnect from  addr: %s  ERROR \n",m->addr);
       break;
     case STATE_CONNECTING:
     case STATE_CONNECTED:
@@ -292,7 +304,7 @@ static   void HandleQEvent(struct messageQ * &m)
     break;
   case CHAR_WRITE_CMD_OUT:
     switch (GlibHandler::m_connectionState){
-      fprintf(stderr,"bavery-> CHAR_WRITE_CMD_OUT state = %d\n",GlibHandler::m_connectionState);
+      printf("bavery-> CHAR_WRITE_CMD_OUT state = %d\n",GlibHandler::m_connectionState);
     case STATE_DISCONNECTED:
       // we got disconnected. reconnect and then run the command
       	{
@@ -307,14 +319,14 @@ static   void HandleQEvent(struct messageQ * &m)
       break;
     case STATE_CONNECTED:
       handled=1;
-      fprintf(stderr,"bavery calling gatt_write_char attrib = %d  handle=%d value=%d plen=%d\n",attrib,m->handle, *(m->value), m->plen);
+      printf("bavery calling gatt_write_char attrib = %d  handle=%d value=%d plen=%d\n",attrib,m->handle, *(m->value), m->plen);
       gatt_write_char(attrib, m->handle, m->value, m->plen, NULL, NULL);
       break;
     }
     break;
   case CHAR_READ_HND_OUT:
     switch (GlibHandler::m_connectionState){
-      fprintf(stderr,"bavery-> CHAR_READ_CMD_OUT state = %d\n",GlibHandler::m_connectionState);
+      printf("bavery-> CHAR_READ_CMD_OUT state = %d\n",GlibHandler::m_connectionState);
     case STATE_DISCONNECTED:
       // we got disconnected. reconnect and then run the command
       	{
@@ -329,32 +341,38 @@ static   void HandleQEvent(struct messageQ * &m)
       break;
     case STATE_CONNECTED:
       handled=1;
-      fprintf(stderr,"bavery calling gatt_read_char attrib = %d  handle=%d offset=%d \n",attrib,m->handle, m->offset);
-      gatt_read_char(attrib, m->handle, m->offset, char_read_cb, attrib);
+      printf("bavery calling gatt_read_char attrib = 0x%x  handle=0x%x offset=%d \n",attrib,m->handle, m->offset);
+      //gatt_read_char(attrib, m->handle, m->offset, char_read_cb, attrib)
+      // can I recover the handle from teh user_data?;
+      gatt_read_char(attrib, m->handle, m->offset, char_read_cb, m->handle);
       break;
     }
     break;
 
   case CHAR_READ_HND_BACK:
     //back events are handled by definition
+    printf("glib CHAR_READ_HND_BACK handle = 0x%x\n",m->handle);
     handled=1;
     {
       struct messageQ *m2 = malloc (sizeof(struct messageQ ));
       m2->event=CHAR_READ_HND_BACK;
       strcpy(m2->addr ,m->addr);
-      m2->uldata = m->uldata;
+      for (int i=0;i < m->handle_data_len;i++)
+	m2->handle_data[i]=m->handle_data[i];
+      m2->handle_data_len=m->handle_data_len;
+      m2->handle=m->handle;
       GlibHandler::AddEventToJSQ(m2);
     }
     break;
 
 
   default:
-    fprintf(stderr,"unknown event in HandleQEvent: %d\n",m->event);
+    printf("unknown event in HandleQEvent: %d\n",m->event);
     handled=1; // delete the baddy
   }
   
   // if we handled the event, free it. otherwise put it back at the end of the Q
-  fprintf(stderr,"HandleQEvent DONE handled = %d\n",handled);
+  printf("HandleQEvent DONE handled = %d\n",handled);
   if (handled)
     free(m);
   else
@@ -367,14 +385,14 @@ static void do_gloop_work(uv_work_t *req)
 {
 
 
-  fprintf(stderr,"do_gloop_work\n");
+  printf("do_gloop_work\n");
   event_loop = g_main_loop_new(NULL, FALSE);
   GlibHandler* glH = GlibHandler::Instance();
 
   while (1){
     if (g_main_context_iteration(NULL,FALSE))
       {
-	fprintf(stderr,"Found a glib event to handle\n");
+	printf("Found a glib event to handle\n");
       }
     // note we should be checking our state here
     
@@ -392,7 +410,7 @@ static void do_gloop_work(uv_work_t *req)
 
 static void done_gloop_work(uv_work_t *req, int status)
 {
-  fprintf(stderr,"done_gloop_work   SHOULD NEVER EVER GET HERE status = %d   AAAARRRRGH\n");
+  printf("done_gloop_work   SHOULD NEVER EVER GET HERE status = %d   AAAARRRRGH\n");
 
 }
 
@@ -435,7 +453,7 @@ struct messageQ * GlibHandler::RemoveEventFromQ(char *addr,  std::list<struct me
   
     struct messageQ *m=NULL;
     if (Q.size()>0)
-      fprintf(stderr,"RemoveEventFromQ size=%d addr = %s strlen(addr)=%d\n",Q.size(),addr,strlen(addr));
+      printf("RemoveEventFromQ size=%d addr = %s strlen(addr)=%d\n",Q.size(),addr,strlen(addr));
     uv_mutex_lock(&qMutex);
     
     // if we have an addr passed in, then return the first of that addr.
@@ -449,14 +467,14 @@ struct messageQ * GlibHandler::RemoveEventFromQ(char *addr,  std::list<struct me
 	}
     }
     else{
-      //fprintf(stderr,"no addr Q size=%d\n",Q.size());
+      //printf("no addr Q size=%d\n",Q.size());
       if (Q.size()){
 	m = Q.front();
 	Q.pop_front();
       }
 
       if (m)
-	fprintf(stderr,"no addr Q post pop size=%d and m type = %d and addr = %s\n",Q.size(),m->event,m->addr);
+	printf("no addr Q post pop size=%d and m type = %d and addr = %s\n",Q.size(),m->event,m->addr);
     }
     uv_mutex_unlock(&qMutex);
     return m;
@@ -500,7 +518,7 @@ void GlibHandler::ChangeState(enum CONN_STATE newState,char *newAddr)
   // not all state changes change the address
   if (newAddr)
     strcpy(m_currentAddress,newAddr);
-  fprintf(stderr,"NEW STATE IS NOW %d with addr = %s\n",m_connectionState,m_currentAddress);
+  printf("NEW STATE IS NOW %d with addr = %s\n",m_connectionState,m_currentAddress);
   uv_mutex_unlock(&m_stateMutex);
 
 }
