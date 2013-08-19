@@ -262,6 +262,10 @@ Handle<Value> Device::CharWriteCommand(const Arguments& args) {
   //unsigned long  myValue = args[1]->NumberValue();
   
   // get the param
+  if (!args[1]->IsString()){
+    printf("Error, this takes strings due to BLUEZ implementation details. e.g. \"20\" \"0100\"\n");
+    return scope.Close(Undefined());
+  }
   v8::String::Utf8Value param1(args[1]->ToString());
   std::string text1 = std::string(*param1);
   size_t s = text1.find("0x");
