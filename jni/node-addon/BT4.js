@@ -74,6 +74,10 @@ var EVENTS = defineEnum({
     CHAR_READ_HND_BACK : {
         value : 10,
         string : 'CHAR_READ_HND_BACK'
+    },
+    CHAR_READ_DESC_BACK : {
+        value : 12,
+        string : 'CHAR_READ_DESC_BACK'
     }
 });
 
@@ -113,6 +117,10 @@ function device_cb(e)
 	    console.log("string length = "+e.handle_data.length);
 	}
 	
+	break;
+    case EVENTS.CHAR_READ_DESC_BACK.value:
+	console.log("DEVICE JS event name = "+EVENTS.CHAR_READ_DESC_BACK.string);
+	console.log("\thandle = 0x"+e.handle.toString(16)+"uuid = 0x",e.uuid.toString(16));
 	break;
     case EVENTS.HANDLE_NOTIFY_BACK.value:
 	console.log("DEVICE JS event name = "+EVENTS.HANDLE_NOTIFY_BACK.string);

@@ -136,6 +136,71 @@ static void events_handler(const uint8_t *pdu, uint16_t len, gpointer user_data)
     g_attrib_send(attrib, 0, opdu[0], opdu, olen, NULL, NULL, NULL);
 }
 
+
+
+static void char_desc_cb(guint8 status, const guint8 *pdu, guint16 plen,
+                            gpointer user_data)
+{
+    struct att_data_list *list;
+    guint8 format;
+    uint16_t handle = 0xffff;
+    int i;
+    
+    printf("bavery: char_desc_cb\n");
+    if (status != 0) {
+      printf("bad status char_desc_cb : %d\n",status);
+      return;
+    }
+
+    list = dec_find_info_resp(pdu, plen, &format);
+    if (list != NULL) {
+
+      
+      for (i = 0; i < list->num; i++) {
+	char uuidstr[MAX_LEN_UUID_STR];
+	uint8_t *value;
+	bt_uuid_t uuid;
+            
+	value = list->data[i];
+	handle = att_get_u16(value);
+
+	if (format == 0x01)
+	  uuid = att_get_uuid16(&value[2]);
+	else
+	  uuid = att_get_uuid128(&value[2]);
+	
+	bt_uuid_to_string(&uuid, uuidstr, MAX_LEN_UUID_STR);
+	printf("bavery char_desc_cb handle,uuid =  %04x %s\n", handle, uuidstr);
+	// add it to our Q
+	struct messageQ *m = malloc (sizeof(struct messageQ ));
+	m->event=CHAR_READ_DESC_BACK;
+	strcpy(m->addr ,GlibHandler::m_currentAddress);
+	//m->uldata = 0x0;
+	m->handle = handle;
+	switch (uuid.type){
+	case BT_UUID16:
+	  m->uuid=(int) uuid.value.u16;
+	  break;
+	case BT_UUID32:
+	  m->uuid=(int) uuid.value.u32;
+	  break;
+	case BT_UUID128:
+	  printf("bavery unhandled 128 bit uuid\n");
+	  m->uuid=(int) 0x0;
+	  break;
+	default:
+	  printf("bavery sad uuidtype \n");
+	  break;
+	}
+      }
+    }
+
+    att_data_list_free(list);
+
+    if (handle != 0xffff)
+        gatt_find_info(attrib, handle + 1, 0xffff, char_desc_cb, NULL);
+}
+
 static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
                             gpointer user_data)
 {
@@ -340,7 +405,7 @@ static   void HandleQEvent(struct messageQ * &m)
     break;
   case CHAR_READ_HND_OUT:
     switch (GlibHandler::m_connectionState){
-      printf("bavery-> CHAR_READ_CMD_OUT state = %d\n",GlibHandler::m_connectionState);
+      printf("bavery-> CHAR_READ_HND_OUT state = %d\n",GlibHandler::m_connectionState);
     case STATE_DISCONNECTED:
       // we got disconnected. reconnect and then run the command
       	{
@@ -375,6 +440,44 @@ static   void HandleQEvent(struct messageQ * &m)
 	m2->handle_data[i]=m->handle_data[i];
       m2->handle_data_len=m->handle_data_len;
       m2->handle=m->handle;
+      GlibHandler::AddEventToJSQ(m2);
+    }
+    break;
+
+  case CHAR_READ_DESC_OUT:
+    switch (GlibHandler::m_connectionState){
+      printf("bavery-> CHAR_READ_DESC_OUT state = %d\n",GlibHandler::m_connectionState);
+    case STATE_DISCONNECTED:
+      // we got disconnected. reconnect and then run the command
+      	{
+	  struct messageQ *m2 = malloc (sizeof(struct messageQ ));
+	  m2->event=CONNECT_OUT;
+	  strcpy(m2->addr ,m->addr);
+	  GlibHandler::AddEventToGLIBQ(m2);
+	}
+      break;
+    case STATE_CONNECTING:
+      // still connecting. not handled. nothing to do but wait.
+      break;
+    case STATE_CONNECTED:
+      handled=1;
+      printf("bavery calling gatt_find_info attrib = 0x%x  start=0x%x end=%d \n",attrib,m->handle, m->offset);
+      gatt_find_info(attrib, m->handle, m->offset, char_desc_cb, NULL);
+      break;
+    }
+    break;
+
+
+  case CHAR_READ_DESC_BACK:
+    //back events are handled by definition
+    printf("glib CHAR_READ_DESC_BACK handle = 0x%x\n",m->handle);
+    handled=1;
+    {
+      struct messageQ *m2 = malloc (sizeof(struct messageQ ));
+      m2->event=CHAR_READ_DESC_BACK;
+      strcpy(m2->addr ,m->addr);
+      m2->handle=m->handle;
+      m2->uuid=m->uuid;
       GlibHandler::AddEventToJSQ(m2);
     }
     break;

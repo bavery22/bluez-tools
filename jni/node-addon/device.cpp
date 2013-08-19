@@ -107,6 +107,19 @@ static void done_queue_work(uv_work_t *req, int status)
 	  my_info->callback->Call(Context::GetCurrent()->Global(), argc, argv);
 	}
 	break;
+      case CHAR_READ_DESC_BACK:
+	{
+	  const unsigned argc = 1;
+	  Local<Object> event = Object::New();
+	  Handle<Value> argv[] = {event};
+	  event->Set(String::NewSymbol("event"), Number::New(my_info->m->event));
+	  event->Set(String::NewSymbol("retval"), Number::New(my_info->m->retval));
+	  event->Set(String::NewSymbol("handle"), Number::New(my_info->m->handle));
+	  event->Set(String::NewSymbol("uuid"), Number::New(my_info->m->uuid));
+	  my_info->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+	}
+	break;
+
       default:
 	fprintf(stderr, "done_queue_work tried and failed to handle unknown event %d\n",my_info->m->event);
 	break;
@@ -152,7 +165,8 @@ void Device::Init(Handle<Object> target) {
       FunctionTemplate::New(CharWriteCommand)->GetFunction());
   tpl->PrototypeTemplate()->Set(String::NewSymbol("CharReadHandle"),
       FunctionTemplate::New(CharReadHandle)->GetFunction());
-
+  tpl->PrototypeTemplate()->Set(String::NewSymbol("CharDesc"),
+      FunctionTemplate::New(CharDesc)->GetFunction());
   Persistent<Function> constructor = Persistent<Function>::New(tpl->GetFunction());
   target->Set(String::NewSymbol("Device"), constructor);
 
@@ -332,6 +346,27 @@ Handle<Value> Device::CharReadHandle(const Arguments& args) {
   
 
 
+  return scope.Close(Undefined());
+  
+}
+//char_desc method
+// reads ALL the handles and returns the info to jsLand
+Handle<Value> Device::CharDesc(const Arguments& args) {
+  HandleScope scope;
+  Device* obj = ObjectWrap::Unwrap<Device>(args.This());
+  // get the param for the range of handles to read
+  //int start = args[0]->IsUndefined() ? 0x0001 : args[0]->NumberValue();
+  //int end = args[1]->IsUndefined() ? 0xffff : args[1]->NumberValue();
+
+
+  struct messageQ *m = malloc (sizeof(struct messageQ ));
+  m->event=  CHAR_READ_DESC_OUT;
+  strcpy(m->addr ,obj->m_address);
+  // nah, just read em all
+  m->handle=0x0001;
+  m->offset=0xffff;
+  m_glibhandler->AddEventToGLIBQ(m);
+  
   return scope.Close(Undefined());
   
 }

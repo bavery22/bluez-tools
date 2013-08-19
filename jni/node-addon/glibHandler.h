@@ -17,7 +17,9 @@ enum EVENT_TYPE{
   CHAR_WRITE_REQ_BACK,
   CHAR_WRITE_CMD_OUT,
   CHAR_READ_HND_OUT,
-  CHAR_READ_HND_BACK
+  CHAR_READ_HND_BACK,
+  CHAR_READ_DESC_OUT,
+  CHAR_READ_DESC_BACK
 }; 
 
 enum CONN_STATE{
@@ -32,6 +34,7 @@ struct messageQ {
   int retval;
   int handle;
   int offset;
+  int uuid;
   // we are making this a pointer. it may be a memory leak but i think they are freeing it somewhere inside gatt.c
   uint8_t *value;
   //unsigned long uldata;
