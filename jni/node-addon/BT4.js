@@ -93,6 +93,7 @@ function device_cb(e)
 	if (e.retval !=0){
 	    console.log("    bad retval = "+e.retval);
 	}
+	D.CharWriteCommand(0x0039,"20");
 	break;
     case EVENTS.DISCONNECT_BACK.value:
 	console.log("DEVICE JS event name = "+EVENTS.DISCONNECT_BACK.string);	
@@ -105,8 +106,11 @@ function device_cb(e)
 	    console.log("\tdata["+i+"] = 0x"+e.handle_data[i].toString(16));
 	    buffer[i] = e.handle_data[i]
 	}
-	if (e.handle_data.length > 4){
+	if ((e.handle_data.length > 4) && (e.handle_data.length < 20)){
 	    console.log("string interp = "+buffer.toString("utf-8"));
+	}
+	else{
+	    console.log("string length = "+e.handle_data.length);
 	}
 	
 	break;
@@ -118,9 +122,6 @@ function device_cb(e)
 	    console.log("\tdata["+i+"] = 0x"+e.handle_data[i].toString(16));
 	    buffer[i] = e.handle_data[i]
 	}
-	if (e.handle_data.length > 4){
-	    console.log("string interp = "+buffer.toString("utf-8"));
-	}
 	
 	break;
     case EVENTS.HANDLE_INDICATOR_BACK.value:
@@ -131,10 +132,6 @@ function device_cb(e)
 	    console.log("\tdata["+i+"] = 0x"+e.handle_data[i].toString(16));
 	    buffer[i] = e.handle_data[i]
 	}
-	if (e.handle_data.length > 4){
-	    console.log("string interp = "+buffer.toString("utf-8"));
-	}
-	
 	break;
 
     default:
