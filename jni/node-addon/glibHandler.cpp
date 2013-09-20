@@ -383,12 +383,18 @@ static   void HandleQEvent(struct messageQ * &m)
       printf("bavery-> CHAR_WRITE_CMD_OUT state = %d\n",GlibHandler::m_connectionState);
     case STATE_DISCONNECTED:
       // we got disconnected. reconnect and then run the command
+      // while this seemed like a good idea, it actually
+      // made more problems. handle at js layer.
+#if 0
       	{
 	  struct messageQ *m2 = malloc (sizeof(struct messageQ ));
 	  m2->event=CONNECT_OUT;
 	  strcpy(m2->addr ,m->addr);
 	  GlibHandler::AddEventToGLIBQ(m2);
 	}
+#else
+	handled=1;
+#endif
       break;
     case STATE_CONNECTING:
       // still connecting. not handled. nothing to do but wait.
@@ -408,12 +414,17 @@ static   void HandleQEvent(struct messageQ * &m)
       printf("bavery-> CHAR_READ_HND_OUT state = %d\n",GlibHandler::m_connectionState);
     case STATE_DISCONNECTED:
       // we got disconnected. reconnect and then run the command
+      // nope, see write_cmd_out
+#if 0
       	{
 	  struct messageQ *m2 = malloc (sizeof(struct messageQ ));
 	  m2->event=CONNECT_OUT;
 	  strcpy(m2->addr ,m->addr);
 	  GlibHandler::AddEventToGLIBQ(m2);
 	}
+#else
+	handled=1;
+#endif
       break;
     case STATE_CONNECTING:
       // still connecting. not handled. nothing to do but wait.
@@ -449,12 +460,17 @@ static   void HandleQEvent(struct messageQ * &m)
       printf("bavery-> CHAR_READ_DESC_OUT state = %d\n",GlibHandler::m_connectionState);
     case STATE_DISCONNECTED:
       // we got disconnected. reconnect and then run the command
+      // nope, see write_cmd_out
+#if 0
       	{
 	  struct messageQ *m2 = malloc (sizeof(struct messageQ ));
 	  m2->event=CONNECT_OUT;
 	  strcpy(m2->addr ,m->addr);
 	  GlibHandler::AddEventToGLIBQ(m2);
 	}
+#else
+	handled=1;
+#endif
       break;
     case STATE_CONNECTING:
       // still connecting. not handled. nothing to do but wait.
@@ -563,6 +579,7 @@ GlibHandler* GlibHandler::m_pInstance = NULL;
 GlibHandler* GlibHandler::Instance()
 {
   if (!m_pInstance) {  // Only allow one instance of class to be generated.
+    fprintf(stderr,"Making a new GLIBHANDLER instance\n");
     m_pInstance = new GlibHandler;
 
     // start the glib work thread
@@ -578,6 +595,8 @@ GlibHandler* GlibHandler::Instance()
     GlibHandler::ChangeState(STATE_DISCONNECTED,"");
     
   }
+  else
+    fprintf(stderr,"Returning an OLD OLD glibhandler instance\n");
   return m_pInstance;
 }
 
