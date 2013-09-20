@@ -82,6 +82,7 @@ static void done_queue_work(uv_work_t *req, int status)
 	  Handle<Value> argv[] = {event};
 	  event->Set(String::NewSymbol("event"), Number::New(my_info->m->event));
 	  event->Set(String::NewSymbol("retval"), Number::New(my_info->m->retval));
+	  event->Set(String::NewSymbol("addr"), String::New(my_info->m->addr));
 	  my_info->callback->Call(Context::GetCurrent()->Global(), argc, argv);
 	}
 	break;
@@ -95,6 +96,7 @@ static void done_queue_work(uv_work_t *req, int status)
 	  event->Set(String::NewSymbol("event"), Number::New(my_info->m->event));
 	  event->Set(String::NewSymbol("retval"), Number::New(my_info->m->retval));
 	  event->Set(String::NewSymbol("handle"), Number::New(my_info->m->handle));
+	  event->Set(String::NewSymbol("addr"), String::New(my_info->m->addr));
 	  Handle<Array> a = Array::New(my_info->m->handle_data_len);	  
 
 	  a->Set(0, Integer::New(1));
@@ -116,6 +118,7 @@ static void done_queue_work(uv_work_t *req, int status)
 	  event->Set(String::NewSymbol("retval"), Number::New(my_info->m->retval));
 	  event->Set(String::NewSymbol("handle"), Number::New(my_info->m->handle));
 	  event->Set(String::NewSymbol("uuid"), Number::New(my_info->m->uuid));
+	  event->Set(String::NewSymbol("addr"), String::New(my_info->m->addr));
 	  my_info->callback->Call(Context::GetCurrent()->Global(), argc, argv);
 	}
 	break;
