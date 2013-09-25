@@ -4,7 +4,7 @@ set -x
 
 OUTFILE=$1
 MY_DIR=`dirname $1`
-DESTDIR=/system/node
+DESTDIR=/system/amino
 
 
 
