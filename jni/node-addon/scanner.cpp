@@ -27,7 +27,7 @@ static void do_work(uv_work_t *req)
   //fp = popen("ls  /system/etc/dhcpcd","r");
   //fp = popen("/system/xbin/hcitool-btle frog 2>&1 ","r");
   char buf[128];
-  snprintf(buf,128,"/system/xbin/hcitool-btle lescan --time=%d 2>&1 ",d->timeToScan);
+  snprintf(buf,128,"/system/bin/hcitool-btle lescan --time=%d 2>&1 ",d->timeToScan);
   //fp = popen("/system/xbin/hcitool-btle lescan --time=5 2>&1 ","r");
   fp = popen(buf,"r");
   fprintf(stderr,"do_work buf= = %s\n",buf);
