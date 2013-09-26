@@ -240,6 +240,17 @@ Handle<Value> Device::Connect(const Arguments& args) {
 
 
   fprintf(stderr,"device: Coonect to %s\n",obj->m_address);
+  // if we need to define the hci dev number, we can override hci0 on connect
+  if(!args[0]->IsUndefined()){
+    v8::String::Utf8Value param1(args[0]->ToString());
+    std::string text0 = std::string(*param1);
+    const char *hciDev=text0.c_str();
+    GlibHandler::SetHciDev(hciDev);
+  }
+
+
+
+
 
   struct messageQ *m = malloc (sizeof(struct messageQ ));
   m->event=CONNECT_OUT;

@@ -60,6 +60,9 @@ class GlibHandler{
   static struct messageQ * RemoveEventFromGLIBQ(char *addr);
   static struct messageQ * RemoveEventFromJSQ(char *addr);  
   static struct messageQ * RemoveEventFromQ(char *addr,  std::list<struct messageQ *> &Q,uv_mutex_t &qMutex);  
+  
+  // set the hci device (aka hci0 normally, hci1 on panda using the dongle)
+  static void SetHciDev(const char *dev);
 
   // coming in from JS
   static uv_mutex_t m_GLIBMutex;
@@ -76,7 +79,7 @@ class GlibHandler{
   static enum CONN_STATE m_connectionState;
   static void ChangeState(enum CONN_STATE newState,char *newAddr);
   static uv_mutex_t m_stateMutex;
-
+  static char m_hciDevname[20];
 
   
   

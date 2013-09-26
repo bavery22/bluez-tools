@@ -32,7 +32,7 @@ std::list<struct messageQ *> GlibHandler::m_JSQ;
 char GlibHandler::m_currentAddress[20];
 enum CONN_STATE GlibHandler::m_connectionState;
 uv_mutex_t GlibHandler::m_stateMutex;
-
+char GlibHandler::m_hciDevname[20];
 
 
 // these should not be statics ...
@@ -290,7 +290,7 @@ static   void HandleQEvent(struct messageQ * &m)
       printf("bavery calling gatt_connect to addr: %s\n",m->addr);
       
       GlibHandler::ChangeState(STATE_CONNECTING,m->addr);
-      iochannel =  gatt_connect("hci0", m->addr, "public", "low",
+      iochannel =  gatt_connect(GlibHandler::m_hciDevname, m->addr, "public", "low",
 				NULL, NULL, connect_cb);
 
       if (iochannel == NULL)
@@ -593,7 +593,9 @@ GlibHandler* GlibHandler::Instance()
 
     // we start disconnected of course
     GlibHandler::ChangeState(STATE_DISCONNECTED,"");
-    
+    // default to hci0
+    strcpy(GlibHandler::m_hciDevname,"hci0");    
+
   }
   else
     fprintf(stderr,"Returning an OLD OLD glibhandler instance\n");
@@ -641,6 +643,12 @@ struct messageQ * GlibHandler::RemoveEventFromJSQ(char *addr)
 {
 
   return RemoveEventFromQ(addr,m_JSQ,m_JSMutex);
+}
+
+
+void GlibHandler::SetHciDev(const char *dev)
+{
+  strncpy(GlibHandler::m_hciDevname,dev,20);  
 }
 
 
